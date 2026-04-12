@@ -1,0 +1,2166 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>売上計画ダッシュボード ver2</title>
+<style>
+  :root {
+    --bg: #f5f7fa;
+    --card-bg: #ffffff;
+    --primary: #2563eb;
+    --primary-dark: #1e40af;
+    --text: #1f2937;
+    --text-sub: #6b7280;
+    --border: #e5e7eb;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --status-jisseki: #10b981;
+    --status-kakutei: #3b82f6;
+    --status-high: #8b5cf6;
+    --status-mid: #f59e0b;
+    --status-low: #94a3b8;
+    --shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.03);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "ヒラギノ角ゴ ProN W3", "Yu Gothic", "Meiryo", sans-serif;
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  header {
+    background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+    color: white;
+    padding: 24px 32px;
+    box-shadow: var(--shadow-md);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  header h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+  }
+
+  header .subtitle {
+    margin-top: 4px;
+    font-size: 13px;
+    opacity: 0.9;
+  }
+
+  .fy-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.15);
+    padding: 8px 14px;
+    border-radius: 8px;
+    backdrop-filter: blur(6px);
+  }
+
+  .fy-selector label {
+    font-size: 12px;
+    opacity: 0.85;
+    font-weight: 500;
+  }
+
+  .fy-selector select {
+    background: white;
+    color: var(--text);
+    border: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .fy-selector button {
+    background: rgba(255,255,255,0.9);
+    color: var(--primary-dark);
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .fy-selector button:hover { background: white; }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 32px;
+  }
+
+  .section {
+    margin-bottom: 32px;
+  }
+
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-sub);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 12px 0;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+
+  /* KPI Cards */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .kpi-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--primary);
+  }
+
+  .kpi-card.target { border-left-color: var(--text-sub); }
+  .kpi-card.jisseki { border-left-color: var(--status-jisseki); }
+  .kpi-card.kakutei { border-left-color: var(--status-kakutei); }
+  .kpi-card.mikomi { border-left-color: var(--status-high); }
+  .kpi-card.total { border-left-color: var(--primary); }
+
+  .kpi-label {
+    font-size: 12px;
+    color: var(--text-sub);
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+
+  .kpi-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .kpi-sub {
+    font-size: 11px;
+    color: var(--text-sub);
+    margin-top: 4px;
+  }
+
+  .progress-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+    transition: width 0.5s ease;
+  }
+
+  /* Dashboard Grid */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 900px) {
+    .dashboard-grid { grid-template-columns: 1fr; }
+  }
+
+  .yoy-overlay {
+    position: absolute;
+    top: 8px;
+    left: 6px;
+    right: 6px;
+    bottom: 24px;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .yoy-line {
+    fill: none;
+    stroke: #ec4899;
+    stroke-width: 2;
+    stroke-dasharray: 5,4;
+  }
+
+  .yoy-dot {
+    fill: #ec4899;
+    stroke: white;
+    stroke-width: 2;
+  }
+
+  .chart-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 16px 0;
+    color: var(--text);
+  }
+
+  /* Monthly Chart */
+  .chart-container {
+    display: flex;
+    height: 280px;
+  }
+
+  .y-axis {
+    width: 56px;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .y-axis-label {
+    position: absolute;
+    right: 8px;
+    transform: translateY(50%);
+    font-size: 10px;
+    color: var(--text-sub);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .chart-area {
+    flex: 1;
+    position: relative;
+    border-left: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .grid-lines {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 8px;
+    bottom: 24px;
+    pointer-events: none;
+  }
+
+  .grid-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px dashed #e5e7eb;
+  }
+
+  .monthly-chart {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    height: 100%;
+    gap: 8px;
+    padding: 8px 6px 24px 6px;
+    position: relative;
+    box-sizing: border-box;
+  }
+
+  .target-marker {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    height: 2px;
+    background: var(--danger);
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  .target-marker::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: -3px;
+    width: 7px;
+    height: 7px;
+    margin-left: -3.5px;
+    background: var(--danger);
+    border-radius: 50%;
+  }
+
+  /* Monthly targets editor */
+  .monthly-targets-editor {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .month-target {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .month-target label {
+    font-size: 10px;
+    color: var(--text-sub);
+    text-align: center;
+    font-weight: 600;
+  }
+
+  .month-target input {
+    width: 100%;
+    padding: 6px 4px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 11px;
+    text-align: right;
+    font-family: inherit;
+    box-sizing: border-box;
+  }
+
+  .month-target input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(37,99,235,0.1);
+  }
+
+  .split-bar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .split-bar input {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    width: 180px;
+    text-align: right;
+  }
+
+  @media (max-width: 900px) {
+    .monthly-targets-editor { grid-template-columns: repeat(6, 1fr); }
+  }
+
+  .bar-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    justify-content: flex-end;
+    position: relative;
+  }
+
+  .bar-stack {
+    width: 60%;
+    max-width: 40px;
+    min-width: 14px;
+    display: flex;
+    flex-direction: column-reverse;
+    border-radius: 4px 4px 0 0;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .bar-stack:hover {
+    transform: scaleY(1.02);
+  }
+
+  .bar-segment {
+    width: 100%;
+    transition: opacity 0.2s;
+  }
+
+  .bar-value {
+    position: absolute;
+    top: -20px;
+    font-size: 10px;
+    color: var(--text-sub);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .bar-label {
+    position: absolute;
+    bottom: -22px;
+    font-size: 11px;
+    color: var(--text-sub);
+    font-weight: 500;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 16px;
+    justify-content: center;
+    font-size: 12px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-sub);
+  }
+
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+  }
+
+  /* Status Summary */
+  .status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #f9fafb;
+  }
+
+  .status-row .label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .status-row .value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .status-row .count {
+    font-size: 11px;
+    color: var(--text-sub);
+    margin-left: 4px;
+  }
+
+  /* Client Ranking */
+  .ranking-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ranking-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ranking-row:last-child { border-bottom: none; }
+
+  .ranking-num {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-sub);
+    width: 24px;
+  }
+
+  .ranking-row.top1 .ranking-num { color: #eab308; }
+  .ranking-row.top2 .ranking-num { color: #94a3b8; }
+  .ranking-row.top3 .ranking-num { color: #b45309; }
+
+  .ranking-name {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ranking-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  /* Form */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .form-field.full { grid-column: 1 / -1; }
+
+  .form-field label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-sub);
+    text-transform: uppercase;
+  }
+
+  .form-field input,
+  .form-field select,
+  .form-field textarea {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    background: white;
+    transition: border-color 0.15s;
+  }
+
+  .form-field input:focus,
+  .form-field select:focus,
+  .form-field textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 12px;
+  }
+
+  button {
+    padding: 8px 18px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+  .btn-primary:hover { background: var(--primary-dark); }
+
+  .btn-secondary {
+    background: #f3f4f6;
+    color: var(--text);
+  }
+  .btn-secondary:hover { background: #e5e7eb; }
+
+  .btn-danger {
+    background: white;
+    color: var(--danger);
+    border: 1px solid var(--border);
+  }
+  .btn-danger:hover { background: #fef2f2; border-color: var(--danger); }
+
+  /* Deals Table */
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-sub);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    background: #f9fafb;
+    position: sticky;
+    top: 0;
+  }
+
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  tbody tr:hover { background: #f9fafb; }
+
+  .status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+    white-space: nowrap;
+  }
+
+  .badge-実績 { background: var(--status-jisseki); }
+  .badge-確定 { background: var(--status-kakutei); }
+  .badge-見込み高 { background: var(--status-high); }
+  .badge-見込み中 { background: var(--status-mid); }
+  .badge-見込み低 { background: var(--status-low); }
+
+  .row-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .icon-btn {
+    background: none;
+    border: 1px solid var(--border);
+    padding: 4px 8px;
+    font-size: 11px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-sub);
+  }
+  .icon-btn:hover { background: #f3f4f6; color: var(--text); }
+  .icon-btn.delete:hover { color: var(--danger); border-color: var(--danger); }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-sub);
+    font-size: 13px;
+  }
+
+  .target-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .target-input input {
+    width: 160px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    text-align: right;
+  }
+
+  .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .toolbar-right {
+    display: flex;
+    gap: 8px;
+    position: relative;
+  }
+
+  .dropdown {
+    position: relative;
+    display: inline-block;
+  }
+
+  .dropdown-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: var(--shadow-md);
+    min-width: 220px;
+    z-index: 50;
+    overflow: hidden;
+  }
+
+  .dropdown.open .dropdown-menu { display: block; }
+
+  .dropdown-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+    color: var(--text);
+    display: block;
+  }
+  .dropdown-item:hover { background: #f3f4f6; }
+  .dropdown-item.divider {
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+  }
+  .dropdown-item .sub {
+    font-size: 11px;
+    color: var(--text-sub);
+    display: block;
+    margin-top: 2px;
+  }
+
+  .tooltip {
+    position: absolute;
+    background: rgba(31,41,55,0.95);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 100;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>売上計画ダッシュボード <span style="font-size:12px; opacity:0.7; font-weight:400;">ver2</span></h1>
+    <div class="subtitle" id="fyLabel">2026年4月 〜 2027年3月（年度）</div>
+  </div>
+  <div class="fy-selector">
+    <label>年度</label>
+    <select id="fySelect" onchange="changeFY(this.value)"></select>
+    <button onclick="addFY()">＋ 新年度</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card target">
+      <div class="kpi-label">年間目標（月別合計）</div>
+      <div class="kpi-value" id="annualTargetValue">¥0</div>
+      <div class="kpi-sub">下の「月別売上目標」で設定</div>
+    </div>
+    <div class="kpi-card total">
+      <div class="kpi-label">年度売上見込み合計</div>
+      <div class="kpi-value" id="totalValue">¥0</div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      <div class="kpi-sub" id="progressText">達成率 0.0%</div>
+    </div>
+    <div class="kpi-card jisseki">
+      <div class="kpi-label">実績</div>
+      <div class="kpi-value" id="jissekiValue">¥0</div>
+      <div class="kpi-sub" id="jissekiSub">0件</div>
+    </div>
+    <div class="kpi-card kakutei">
+      <div class="kpi-label">確定</div>
+      <div class="kpi-value" id="kakuteiValue">¥0</div>
+      <div class="kpi-sub" id="kakuteiSub">0件</div>
+    </div>
+    <div class="kpi-card mikomi">
+      <div class="kpi-label">見込み（加重平均）</div>
+      <div class="kpi-value" id="mikomiValue">¥0</div>
+      <div class="kpi-sub" id="mikomiSub">高80% / 中50% / 低20%</div>
+    </div>
+    <div class="kpi-card" style="border-left-color:#eab308;">
+      <div class="kpi-label">達成率（売上÷目標）</div>
+      <div class="kpi-value" id="achievementValue">—</div>
+      <div class="kpi-sub" id="achievementSub">目標未設定</div>
+    </div>
+    <div class="kpi-card" style="border-left-color:#ec4899;">
+      <div class="kpi-label">前年比</div>
+      <div class="kpi-value" id="yoyValue">—</div>
+      <div class="kpi-sub" id="yoySub">前年度データなし</div>
+    </div>
+  </div>
+
+  <!-- Monthly Targets -->
+  <div class="section">
+    <h2 class="section-title">月別売上目標・実績</h2>
+    <div class="card">
+      <div class="split-bar" style="justify-content:space-between;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <input type="number" id="annualTargetInput" placeholder="年間目標を入力（円）" />
+          <button class="btn-secondary" onclick="splitAnnualTarget()">年間目標を12ヶ月に均等割</button>
+          <button class="btn-secondary" onclick="clearTargets()">全てクリア</button>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn-primary" onclick="exportMonthlyPlanCSV()">⬇ 月別目標・実績CSV</button>
+          <button class="btn-secondary" onclick="triggerMonthlyPlanUpload()">⬆ CSVを読込</button>
+          <button class="btn-secondary" onclick="downloadMonthlyPlanTemplate()">📄 テンプレート</button>
+          <input type="file" id="monthlyPlanFile" accept=".csv" style="display:none" onchange="handleMonthlyPlanUpload(event)" />
+        </div>
+      </div>
+      <div class="monthly-targets-editor" id="monthlyTargetsEditor"></div>
+      <div style="margin-top:16px; font-size:11px; color:var(--text-sub);">
+        ※ 実績（月別集計）は案件一覧から自動計算されます。CSVエクスポートには目標・実績・達成率・前年実績が含まれます。
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="section">
+    <h2 class="section-title">ダッシュボード</h2>
+    <div class="dashboard-grid">
+      <div class="card">
+        <h3 class="chart-title">月次売上推移（ステータス別・積み上げ）</h3>
+        <div class="chart-container">
+          <div class="y-axis" id="yAxis"></div>
+          <div class="chart-area">
+            <div class="grid-lines" id="gridLines"></div>
+            <div class="monthly-chart" id="monthlyChart"></div>
+            <svg class="yoy-overlay" id="yoyOverlay"></svg>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><span class="legend-dot" style="background:var(--status-jisseki)"></span>実績</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--status-kakutei)"></span>確定</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--status-high)"></span>見込み高</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--status-mid)"></span>見込み中</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--status-low)"></span>見込み低</div>
+          <div class="legend-item"><span style="display:inline-block; width:16px; height:0; border-top:2px solid var(--danger);"></span>月別目標</div>
+          <div class="legend-item"><span style="display:inline-block; width:16px; height:0; border-top:2px dashed #ec4899;"></span>前年実績</div>
+        </div>
+      </div>
+
+      <div class="card" style="grid-column:1 / -1;">
+        <h3 class="chart-title">前年比（％）— 本年度実績÷前年度実績</h3>
+        <div class="chart-container" style="height:220px;">
+          <div class="y-axis" id="yoyYAxis"></div>
+          <div class="chart-area" style="position:relative;">
+            <div class="grid-lines" id="yoyGridLines"></div>
+            <svg class="yoy-line-chart" id="yoyLineChart" style="width:100%; height:100%; position:absolute; top:0; left:0;"></svg>
+            <div class="monthly-chart" id="yoyLabels" style="pointer-events:none;"></div>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><span style="display:inline-block; width:16px; height:0; border-top:2px solid #ec4899;"></span>前年比（％）</div>
+          <div class="legend-item"><span style="display:inline-block; width:16px; height:0; border-top:1px dashed #94a3b8;"></span>100%ライン</div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div class="card">
+          <h3 class="chart-title">ステータス別サマリ</h3>
+          <div class="status-list" id="statusList"></div>
+        </div>
+        <div class="card">
+          <h3 class="chart-title">クライアント別 売上TOP5</h3>
+          <div class="ranking-list" id="rankingList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Form -->
+  <div class="section">
+    <h2 class="section-title">案件の追加・編集</h2>
+    <div class="card">
+      <div class="form-grid">
+        <div class="form-field">
+          <label>ステータス</label>
+          <select id="f_status">
+            <option value="実績">実績</option>
+            <option value="確定">確定</option>
+            <option value="見込み高">見込み高</option>
+            <option value="見込み中">見込み中</option>
+            <option value="見込み低">見込み低</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>クライアント名</label>
+          <input type="text" id="f_client" placeholder="株式会社〇〇" />
+        </div>
+        <div class="form-field">
+          <label>案件名</label>
+          <input type="text" id="f_project" placeholder="DX推進コンサル" />
+        </div>
+        <div class="form-field">
+          <label>契約開始日</label>
+          <input type="date" id="f_start" />
+        </div>
+        <div class="form-field">
+          <label>契約終了日</label>
+          <input type="date" id="f_end" />
+        </div>
+        <div class="form-field">
+          <label>契約金額（総額・円）</label>
+          <input type="number" id="f_amount" placeholder="1000000" />
+        </div>
+        <div class="form-field full">
+          <label>備考</label>
+          <textarea id="f_note" rows="2" placeholder="自由記入"></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-secondary" onclick="resetForm()">クリア</button>
+        <button class="btn-primary" id="saveBtn" onclick="saveDeal()">案件を追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deals Table -->
+  <div class="section">
+    <div class="toolbar">
+      <h2 class="section-title" style="margin:0;">案件一覧</h2>
+      <div class="toolbar-right">
+        <div class="dropdown" id="downloadDropdown">
+          <button class="btn-primary" onclick="toggleDropdown('downloadDropdown')">⬇ ダウンロード ▾</button>
+          <div class="dropdown-menu">
+            <button class="dropdown-item" onclick="downloadAll(); closeDropdowns();">
+              一括ダウンロード（ZIP風・全CSV）
+              <span class="sub">案件・月別目標・月次集計をまとめて</span>
+            </button>
+            <button class="dropdown-item divider" onclick="exportDealsCSV(); closeDropdowns();">
+              案件一覧 CSV
+              <span class="sub">全案件の明細</span>
+            </button>
+            <button class="dropdown-item" onclick="exportTargetsCSV(); closeDropdowns();">
+              月別目標 CSV
+              <span class="sub">月ごとの売上目標</span>
+            </button>
+            <button class="dropdown-item" onclick="exportMonthlyCSV(); closeDropdowns();">
+              月次集計 CSV
+              <span class="sub">ステータス別×月の集計マトリクス</span>
+            </button>
+            <button class="dropdown-item" onclick="exportBackupJSON(); closeDropdowns();">
+              バックアップ（JSON）
+              <span class="sub">全データをまるごと保存</span>
+            </button>
+          </div>
+        </div>
+        <button class="btn-secondary" onclick="downloadDealsTemplateEmpty()">📄 テンプレート</button>
+        <div class="dropdown" id="uploadDropdown">
+          <button class="btn-secondary" onclick="toggleDropdown('uploadDropdown')">⬆ アップロード ▾</button>
+          <div class="dropdown-menu">
+            <button class="dropdown-item" onclick="triggerUpload('deals'); closeDropdowns();">
+              案件一覧 CSV を読み込み
+              <span class="sub">既存データに追加</span>
+            </button>
+            <button class="dropdown-item" onclick="triggerUpload('dealsReplace'); closeDropdowns();">
+              案件一覧 CSV で置き換え
+              <span class="sub">既存データを全置換</span>
+            </button>
+            <button class="dropdown-item divider" onclick="triggerUpload('targets'); closeDropdowns();">
+              月別目標 CSV を読み込み
+              <span class="sub">目標値を上書き</span>
+            </button>
+            <button class="dropdown-item divider" onclick="triggerUpload('backup'); closeDropdowns();">
+              バックアップ（JSON）を復元
+              <span class="sub">全データを置き換え</span>
+            </button>
+          </div>
+        </div>
+        <input type="file" id="uploadFile" accept=".csv,.json" style="display:none" onchange="handleUpload(event)" />
+      </div>
+    </div>
+    <div class="card" style="padding:0;">
+      <div class="table-wrapper">
+        <table id="dealsTable">
+          <thead>
+            <tr>
+              <th>ステータス</th>
+              <th>クライアント</th>
+              <th>案件名</th>
+              <th>開始</th>
+              <th>終了</th>
+              <th class="num">契約金額</th>
+              <th class="num">月額</th>
+              <th class="num">月数</th>
+              <th>備考</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="dealsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ========== Configuration ==========
+// Fiscal year starts April. FY2026 = 2026/4/1 - 2027/3/31
+let currentFY = 2026;
+let MONTHS = [];
+
+function buildMonths(fy) {
+  const arr = [];
+  for (let i = 0; i < 12; i++) {
+    arr.push(new Date(fy, 3 + i, 1));
+  }
+  return arr;
+}
+MONTHS = buildMonths(currentFY);
+
+const STATUSES = ['実績', '確定', '見込み高', '見込み中', '見込み低'];
+const STATUS_COLORS = {
+  '実績': '#10b981',
+  '確定': '#3b82f6',
+  '見込み高': '#8b5cf6',
+  '見込み中': '#f59e0b',
+  '見込み低': '#94a3b8'
+};
+const WEIGHTS = {
+  '実績': 1.0,
+  '確定': 1.0,
+  '見込み高': 0.8,
+  '見込み中': 0.5,
+  '見込み低': 0.2
+};
+
+// ========== State ==========
+// store = { fiscalYears: [2025, 2026, ...], currentFY: 2026, data: { 2026: { deals: [], monthlyTargets: [] }, ... } }
+let store = {
+  currentFY: 2026,
+  fiscalYears: [2026],
+  data: {}
+};
+let editingId = null;
+
+function ensureFY(fy) {
+  if (!store.data[fy]) {
+    store.data[fy] = { deals: [], monthlyTargets: new Array(12).fill(0) };
+  }
+  if (!store.fiscalYears.includes(fy)) {
+    store.fiscalYears.push(fy);
+    store.fiscalYears.sort((a, b) => a - b);
+  }
+}
+
+function currentData() {
+  ensureFY(store.currentFY);
+  return store.data[store.currentFY];
+}
+
+// Backward-compatible accessors
+Object.defineProperty(window, 'deals', {
+  get() { return currentData().deals; },
+  set(v) { currentData().deals = v; }
+});
+Object.defineProperty(window, 'monthlyTargets', {
+  get() { return currentData().monthlyTargets; },
+  set(v) { currentData().monthlyTargets = v; }
+});
+
+// ========== Storage ==========
+function save() {
+  localStorage.setItem('uriage_store_v2', JSON.stringify(store));
+}
+
+function load() {
+  const raw = localStorage.getItem('uriage_store_v2');
+  if (raw) {
+    try {
+      store = JSON.parse(raw);
+      if (!store.data) store.data = {};
+      if (!Array.isArray(store.fiscalYears) || store.fiscalYears.length === 0) {
+        store.fiscalYears = [store.currentFY || 2026];
+      }
+    } catch(e) { store = { currentFY: 2026, fiscalYears: [2026], data: {} }; }
+  } else {
+    // Migrate from v1
+    const oldDeals = localStorage.getItem('uriage_deals');
+    const oldTargets = localStorage.getItem('uriage_monthly_targets');
+    const oldSingle = localStorage.getItem('uriage_target');
+    store = { currentFY: 2026, fiscalYears: [2026], data: { 2026: { deals: [], monthlyTargets: new Array(12).fill(0) } } };
+    if (oldDeals) {
+      try { store.data[2026].deals = JSON.parse(oldDeals); } catch(e) {}
+    }
+    if (oldTargets) {
+      try { store.data[2026].monthlyTargets = JSON.parse(oldTargets); } catch(e) {}
+    } else if (oldSingle) {
+      const n = Number(oldSingle) || 0;
+      store.data[2026].monthlyTargets = new Array(12).fill(n / 12);
+    }
+  }
+  ensureFY(store.currentFY);
+  // Normalize all FYs
+  store.fiscalYears.forEach(fy => ensureFY(fy));
+  currentFY = store.currentFY;
+  MONTHS = buildMonths(currentFY);
+}
+
+function annualTarget() {
+  return currentData().monthlyTargets.reduce((a, b) => a + (Number(b) || 0), 0);
+}
+
+// ========== FY Management ==========
+function changeFY(fy) {
+  store.currentFY = Number(fy);
+  currentFY = Number(fy);
+  MONTHS = buildMonths(currentFY);
+  ensureFY(currentFY);
+  save();
+  render();
+}
+
+function addFY() {
+  const input = prompt('追加する年度（西暦）を入力してください\n例: 2027 → 2027年4月〜2028年3月', String(Math.max(...store.fiscalYears) + 1));
+  if (!input) return;
+  const fy = Number(input);
+  if (!Number.isInteger(fy) || fy < 2000 || fy > 2100) { alert('有効な年度を入力してください'); return; }
+  ensureFY(fy);
+  store.currentFY = fy;
+  currentFY = fy;
+  MONTHS = buildMonths(fy);
+  save();
+  render();
+}
+
+function renderFYSelector() {
+  const sel = document.getElementById('fySelect');
+  sel.innerHTML = '';
+  store.fiscalYears.forEach(fy => {
+    const opt = document.createElement('option');
+    opt.value = fy;
+    opt.textContent = `FY${fy}（${fy}/4〜${fy+1}/3）`;
+    if (fy === store.currentFY) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  document.getElementById('fyLabel').textContent =
+    `${currentFY}年4月 〜 ${currentFY+1}年3月（年度）`;
+}
+
+// Get monthly totals for a specific FY (used for YoY)
+function monthlyActualForFY(fy) {
+  const data = store.data[fy];
+  if (!data) return new Array(12).fill(0);
+  const months = buildMonths(fy);
+  const result = new Array(12).fill(0);
+  data.deals.forEach(d => {
+    const start = new Date(d.start);
+    const end = new Date(d.end);
+    const startM = start.getFullYear() * 12 + start.getMonth();
+    const endM = end.getFullYear() * 12 + end.getMonth();
+    const totalMonths = endM - startM + 1;
+    if (totalMonths <= 0) return;
+    const perMonth = d.amount / totalMonths;
+    months.forEach((m, i) => {
+      const mKey = m.getFullYear() * 12 + m.getMonth();
+      if (mKey >= startM && mKey <= endM) result[i] += perMonth;
+    });
+  });
+  return result;
+}
+
+// ========== Chart helpers ==========
+function niceMax(val) {
+  if (val <= 0) return 100000;
+  const exp = Math.floor(Math.log10(val));
+  const base = Math.pow(10, exp);
+  const n = val / base;
+  let niceN;
+  if (n <= 1) niceN = 1;
+  else if (n <= 1.5) niceN = 1.5;
+  else if (n <= 2) niceN = 2;
+  else if (n <= 3) niceN = 3;
+  else if (n <= 5) niceN = 5;
+  else if (n <= 7.5) niceN = 7.5;
+  else niceN = 10;
+  return niceN * base;
+}
+
+function fmtShort(n) {
+  if (!n || n <= 0) return '¥0';
+  if (n >= 100000000) return '¥' + (n / 100000000).toFixed(1) + '億';
+  if (n >= 10000) return '¥' + Math.round(n / 10000).toLocaleString() + '万';
+  return '¥' + Math.round(n).toLocaleString();
+}
+
+// ========== Calculations ==========
+// Returns monthly amount for each of the 12 months for a single deal
+function dealMonthly(deal) {
+  const start = new Date(deal.start);
+  const end = new Date(deal.end);
+  const startM = start.getFullYear() * 12 + start.getMonth();
+  const endM = end.getFullYear() * 12 + end.getMonth();
+  const totalMonths = endM - startM + 1;
+  if (totalMonths <= 0) return MONTHS.map(() => 0);
+  const perMonth = deal.amount / totalMonths;
+  return MONTHS.map(m => {
+    const mKey = m.getFullYear() * 12 + m.getMonth();
+    return (mKey >= startM && mKey <= endM) ? perMonth : 0;
+  });
+}
+
+function dealFYTotal(deal) {
+  return dealMonthly(deal).reduce((a, b) => a + b, 0);
+}
+
+function monthlyTotalsByStatus() {
+  const result = {};
+  STATUSES.forEach(s => result[s] = MONTHS.map(() => 0));
+  deals.forEach(d => {
+    const monthly = dealMonthly(d);
+    monthly.forEach((v, i) => { result[d.status][i] += v; });
+  });
+  return result;
+}
+
+function statusSummary() {
+  const result = {};
+  STATUSES.forEach(s => result[s] = { amount: 0, count: 0 });
+  deals.forEach(d => {
+    result[d.status].amount += dealFYTotal(d);
+    result[d.status].count += 1;
+  });
+  return result;
+}
+
+function clientRanking() {
+  const map = {};
+  deals.forEach(d => {
+    map[d.client] = (map[d.client] || 0) + dealFYTotal(d);
+  });
+  return Object.entries(map)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+}
+
+// ========== Formatting ==========
+function fmtYen(n) {
+  if (!n) return '¥0';
+  return '¥' + Math.round(n).toLocaleString('ja-JP');
+}
+
+function fmtDate(s) {
+  if (!s) return '';
+  const d = new Date(s);
+  return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+}
+
+// ========== Rendering ==========
+function render() {
+  renderFYSelector();
+  renderKPIs();
+  renderTargetsEditor();
+  renderMonthlyChart();
+  renderYoYChart();
+  renderStatusSummary();
+  renderRanking();
+  renderTable();
+}
+
+function renderKPIs() {
+  const summary = statusSummary();
+  const total = deals.reduce((sum, d) => sum + dealFYTotal(d), 0);
+  const weighted =
+    summary['実績'].amount * WEIGHTS['実績'] +
+    summary['確定'].amount * WEIGHTS['確定'] +
+    summary['見込み高'].amount * WEIGHTS['見込み高'] +
+    summary['見込み中'].amount * WEIGHTS['見込み中'] +
+    summary['見込み低'].amount * WEIGHTS['見込み低'];
+
+  const target = annualTarget();
+  document.getElementById('annualTargetValue').textContent = fmtYen(target);
+  document.getElementById('totalValue').textContent = fmtYen(weighted);
+  const pct = target > 0 ? (weighted / target * 100) : 0;
+  document.getElementById('progressFill').style.width = Math.min(100, pct) + '%';
+  document.getElementById('progressText').textContent = `目標 ${fmtYen(target)} / 達成率 ${pct.toFixed(1)}%`;
+
+  document.getElementById('jissekiValue').textContent = fmtYen(summary['実績'].amount);
+  document.getElementById('jissekiSub').textContent = `${summary['実績'].count}件`;
+
+  document.getElementById('kakuteiValue').textContent = fmtYen(summary['確定'].amount);
+  document.getElementById('kakuteiSub').textContent = `${summary['確定'].count}件`;
+
+  const mikomi = summary['見込み高'].amount * WEIGHTS['見込み高'] +
+                 summary['見込み中'].amount * WEIGHTS['見込み中'] +
+                 summary['見込み低'].amount * WEIGHTS['見込み低'];
+  document.getElementById('mikomiValue').textContent = fmtYen(mikomi);
+
+  // Achievement (実績+確定) / target
+  const actual = summary['実績'].amount + summary['確定'].amount;
+  const achievementEl = document.getElementById('achievementValue');
+  const achievementSub = document.getElementById('achievementSub');
+  if (target > 0) {
+    const rate = (actual / target * 100);
+    achievementEl.textContent = rate.toFixed(1) + '%';
+    achievementEl.style.color = rate >= 100 ? '#10b981' : (rate >= 80 ? '#2563eb' : '#f59e0b');
+    achievementSub.textContent = `${fmtYen(actual)} / ${fmtYen(target)}（実績+確定）`;
+  } else {
+    achievementEl.textContent = '—';
+    achievementEl.style.color = '';
+    achievementSub.textContent = '目標未設定';
+  }
+
+  // Year over Year
+  const prevFY = currentFY - 1;
+  const prevData = store.data[prevFY];
+  const yoyEl = document.getElementById('yoyValue');
+  const yoySub = document.getElementById('yoySub');
+  if (prevData && prevData.deals.length > 0) {
+    const prevTotal = monthlyActualForFY(prevFY).reduce((a, b) => a + b, 0);
+    const thisActual = actual;
+    if (prevTotal > 0) {
+      const yoy = (thisActual / prevTotal * 100);
+      yoyEl.textContent = yoy.toFixed(1) + '%';
+      yoyEl.style.color = yoy >= 100 ? '#10b981' : '#ef4444';
+      const diff = thisActual - prevTotal;
+      const sign = diff >= 0 ? '+' : '';
+      yoySub.textContent = `前年 ${fmtYen(prevTotal)} / 差 ${sign}${fmtYen(diff)}`;
+    } else {
+      yoyEl.textContent = '—';
+      yoyEl.style.color = '';
+      yoySub.textContent = '前年度データなし';
+    }
+  } else {
+    yoyEl.textContent = '—';
+    yoyEl.style.color = '';
+    yoySub.textContent = `FY${prevFY} データなし`;
+  }
+}
+
+function renderMonthlyChart() {
+  const data = monthlyTotalsByStatus();
+  const monthTotals = MONTHS.map((_, i) =>
+    STATUSES.reduce((s, st) => s + data[st][i], 0)
+  );
+  const prevActual = monthlyActualForFY(currentFY - 1);
+  const hasPrev = prevActual.some(v => v > 0);
+  const rawMax = Math.max(...monthTotals, ...monthlyTargets, ...(hasPrev ? prevActual : [0]), 1);
+  const chartMax = niceMax(rawMax * 1.1);
+
+  // Y-axis labels
+  const yAxis = document.getElementById('yAxis');
+  yAxis.innerHTML = '';
+  const chartHeight = 280;
+  const padTop = 8;
+  const padBottom = 24;
+  const areaHeight = chartHeight - padTop - padBottom;
+  for (let i = 0; i <= 4; i++) {
+    const val = chartMax * (i / 4);
+    const label = document.createElement('div');
+    label.className = 'y-axis-label';
+    label.style.bottom = (padBottom + (i / 4) * areaHeight) + 'px';
+    label.textContent = fmtShort(val);
+    yAxis.appendChild(label);
+  }
+
+  // Grid lines
+  const gridLines = document.getElementById('gridLines');
+  gridLines.innerHTML = '';
+  for (let i = 0; i <= 4; i++) {
+    const line = document.createElement('div');
+    line.className = 'grid-line';
+    line.style.bottom = (i / 4 * 100) + '%';
+    gridLines.appendChild(line);
+  }
+
+  // Bars
+  const chart = document.getElementById('monthlyChart');
+  chart.innerHTML = '';
+
+  MONTHS.forEach((m, i) => {
+    const group = document.createElement('div');
+    group.className = 'bar-group';
+
+    const stack = document.createElement('div');
+    stack.className = 'bar-stack';
+    const heightPct = (monthTotals[i] / chartMax) * 100;
+    stack.style.height = heightPct + '%';
+
+    STATUSES.forEach(st => {
+      const v = data[st][i];
+      if (v > 0) {
+        const seg = document.createElement('div');
+        seg.className = 'bar-segment';
+        seg.style.height = ((v / monthTotals[i]) * 100) + '%';
+        seg.style.background = STATUS_COLORS[st];
+        stack.appendChild(seg);
+      }
+    });
+
+    stack.addEventListener('mouseenter', (e) => showTooltip(e, m, data, i));
+    stack.addEventListener('mousemove', (e) => moveTooltip(e));
+    stack.addEventListener('mouseleave', hideTooltip);
+
+    const valueLabel = document.createElement('div');
+    valueLabel.className = 'bar-value';
+    if (monthTotals[i] > 0) {
+      valueLabel.textContent = fmtShort(monthTotals[i]);
+    }
+    stack.appendChild(valueLabel);
+
+    group.appendChild(stack);
+
+    // Target marker
+    if (monthlyTargets[i] > 0) {
+      const marker = document.createElement('div');
+      marker.className = 'target-marker';
+      marker.style.bottom = ((monthlyTargets[i] / chartMax) * 100) + '%';
+      marker.title = `目標: ${fmtYen(monthlyTargets[i])}`;
+      group.appendChild(marker);
+    }
+
+    const label = document.createElement('div');
+    label.className = 'bar-label';
+    label.textContent = (m.getMonth() + 1) + '月';
+    group.appendChild(label);
+    chart.appendChild(group);
+  });
+
+  // Draw previous-year actual as dashed overlay line
+  const overlay = document.getElementById('yoyOverlay');
+  overlay.innerHTML = '';
+  if (hasPrev) {
+    const bbox = overlay.getBoundingClientRect();
+    const w = bbox.width || 800;
+    const h = bbox.height || 248;
+    overlay.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    const stepX = w / 12;
+    const points = prevActual.map((v, i) => {
+      const x = stepX * (i + 0.5);
+      const y = h - (v / chartMax) * h;
+      return [x, y];
+    });
+    const path = points.map((p, i) => (i === 0 ? 'M' : 'L') + p[0] + ',' + p[1]).join(' ');
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    line.setAttribute('d', path);
+    line.setAttribute('class', 'yoy-line');
+    overlay.appendChild(line);
+    points.forEach(p => {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', p[0]);
+      c.setAttribute('cy', p[1]);
+      c.setAttribute('r', 3);
+      c.setAttribute('class', 'yoy-dot');
+      overlay.appendChild(c);
+    });
+  }
+}
+
+function renderYoYChart() {
+  const yAxis = document.getElementById('yoyYAxis');
+  const grid = document.getElementById('yoyGridLines');
+  const svg = document.getElementById('yoyLineChart');
+  const labelsDiv = document.getElementById('yoyLabels');
+  yAxis.innerHTML = '';
+  grid.innerHTML = '';
+  svg.innerHTML = '';
+  labelsDiv.innerHTML = '';
+
+  const thisActual = monthlyActualForFY(currentFY);
+  const prevActual = monthlyActualForFY(currentFY - 1);
+  const yoyPct = MONTHS.map((_, i) => {
+    if (prevActual[i] > 0) return (thisActual[i] / prevActual[i]) * 100;
+    return null;
+  });
+
+  const validVals = yoyPct.filter(v => v !== null);
+  if (validVals.length === 0) {
+    const msg = document.createElement('div');
+    msg.style.cssText = 'position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:var(--text-sub); font-size:13px;';
+    msg.textContent = `前年度（FY${currentFY-1}）のデータがありません`;
+    svg.parentElement.appendChild(msg);
+    return;
+  }
+
+  const maxVal = Math.max(200, niceMax(Math.max(...validVals) * 1.1));
+  const minVal = 0;
+
+  // Y-axis labels
+  for (let i = 0; i <= 4; i++) {
+    const val = maxVal * (i / 4);
+    const label = document.createElement('div');
+    label.className = 'y-axis-label';
+    label.style.bottom = (24 + (i / 4) * (220 - 32)) + 'px';
+    label.textContent = val.toFixed(0) + '%';
+    yAxis.appendChild(label);
+  }
+
+  // Grid lines
+  for (let i = 0; i <= 4; i++) {
+    const line = document.createElement('div');
+    line.className = 'grid-line';
+    line.style.bottom = (i / 4 * 100) + '%';
+    grid.appendChild(line);
+  }
+
+  // 100% reference line
+  const ref = document.createElement('div');
+  ref.className = 'grid-line';
+  ref.style.bottom = (100 / maxVal * 100) + '%';
+  ref.style.borderTopStyle = 'dashed';
+  ref.style.borderTopColor = '#94a3b8';
+  ref.style.borderTopWidth = '1px';
+  grid.appendChild(ref);
+
+  // SVG line
+  requestAnimationFrame(() => {
+    const bbox = svg.getBoundingClientRect();
+    const w = bbox.width || 800;
+    const h = bbox.height || 220;
+    const padTop = 8;
+    const padBottom = 24;
+    const padLeft = 6;
+    const padRight = 6;
+    const innerW = w - padLeft - padRight;
+    const innerH = h - padTop - padBottom;
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    const stepX = innerW / 12;
+
+    const pts = [];
+    yoyPct.forEach((v, i) => {
+      if (v === null) return;
+      const x = padLeft + stepX * (i + 0.5);
+      const y = padTop + innerH - (v / maxVal) * innerH;
+      pts.push([x, y, v, i]);
+    });
+
+    if (pts.length >= 2) {
+      const path = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p[0] + ',' + p[1]).join(' ');
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      line.setAttribute('d', path);
+      line.setAttribute('fill', 'none');
+      line.setAttribute('stroke', '#ec4899');
+      line.setAttribute('stroke-width', '2.5');
+      svg.appendChild(line);
+    }
+
+    pts.forEach(p => {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', p[0]);
+      c.setAttribute('cy', p[1]);
+      c.setAttribute('r', 4);
+      c.setAttribute('fill', '#ec4899');
+      c.setAttribute('stroke', 'white');
+      c.setAttribute('stroke-width', '2');
+      svg.appendChild(c);
+
+      const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      t.setAttribute('x', p[0]);
+      t.setAttribute('y', p[1] - 8);
+      t.setAttribute('text-anchor', 'middle');
+      t.setAttribute('fill', '#ec4899');
+      t.setAttribute('font-size', '10');
+      t.setAttribute('font-weight', '600');
+      t.textContent = p[2].toFixed(0) + '%';
+      svg.appendChild(t);
+    });
+  });
+
+  // Month labels
+  MONTHS.forEach(m => {
+    const g = document.createElement('div');
+    g.className = 'bar-group';
+    const lbl = document.createElement('div');
+    lbl.className = 'bar-label';
+    lbl.textContent = (m.getMonth() + 1) + '月';
+    g.appendChild(lbl);
+    labelsDiv.appendChild(g);
+  });
+}
+
+function renderTargetsEditor() {
+  const editor = document.getElementById('monthlyTargetsEditor');
+  if (!editor) return;
+  editor.innerHTML = '';
+  MONTHS.forEach((m, i) => {
+    const div = document.createElement('div');
+    div.className = 'month-target';
+    const val = monthlyTargets[i] || '';
+    div.innerHTML = `
+      <label>${m.getFullYear()}/${m.getMonth()+1}</label>
+      <input type="number" value="${val}" placeholder="0"
+             oninput="updateMonthTarget(${i}, this.value)" />
+    `;
+    editor.appendChild(div);
+  });
+}
+
+function updateMonthTarget(i, val) {
+  monthlyTargets[i] = Number(val) || 0;
+  save();
+  renderKPIs();
+  renderMonthlyChart();
+}
+
+function splitAnnualTarget() {
+  const input = document.getElementById('annualTargetInput');
+  const val = Number(input.value) || 0;
+  if (val <= 0) { alert('年間目標額を入力してください'); return; }
+  const perMonth = Math.round(val / 12);
+  monthlyTargets = new Array(12).fill(perMonth);
+  save();
+  renderTargetsEditor();
+  renderKPIs();
+  renderMonthlyChart();
+}
+
+function clearTargets() {
+  if (!confirm('月別目標を全てクリアしますか？')) return;
+  monthlyTargets = new Array(12).fill(0);
+  document.getElementById('annualTargetInput').value = '';
+  save();
+  renderTargetsEditor();
+  renderKPIs();
+  renderMonthlyChart();
+}
+
+function showTooltip(e, month, data, i) {
+  const tt = document.getElementById('tooltip');
+  let html = `<strong>${month.getFullYear()}年${month.getMonth()+1}月</strong>`;
+  STATUSES.forEach(st => {
+    if (data[st][i] > 0) {
+      html += `<br>${st}: ${fmtYen(data[st][i])}`;
+    }
+  });
+  tt.innerHTML = html;
+  tt.style.display = 'block';
+  moveTooltip(e);
+}
+
+function moveTooltip(e) {
+  const tt = document.getElementById('tooltip');
+  tt.style.left = (e.pageX + 12) + 'px';
+  tt.style.top = (e.pageY - 10) + 'px';
+}
+
+function hideTooltip() {
+  document.getElementById('tooltip').style.display = 'none';
+}
+
+function renderStatusSummary() {
+  const summary = statusSummary();
+  const list = document.getElementById('statusList');
+  list.innerHTML = '';
+  STATUSES.forEach(st => {
+    const row = document.createElement('div');
+    row.className = 'status-row';
+    row.innerHTML = `
+      <div class="label">
+        <span class="status-dot" style="background:${STATUS_COLORS[st]}"></span>
+        ${st}<span class="count">（${summary[st].count}件）</span>
+      </div>
+      <div class="value">${fmtYen(summary[st].amount)}</div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function renderRanking() {
+  const ranking = clientRanking();
+  const list = document.getElementById('rankingList');
+  list.innerHTML = '';
+  if (ranking.length === 0) {
+    list.innerHTML = '<div class="empty-state">案件がまだありません</div>';
+    return;
+  }
+  ranking.forEach(([name, amount], i) => {
+    const row = document.createElement('div');
+    row.className = 'ranking-row' + (i < 3 ? ` top${i+1}` : '');
+    row.innerHTML = `
+      <div class="ranking-num">${i+1}</div>
+      <div class="ranking-name">${escapeHtml(name)}</div>
+      <div class="ranking-value">${fmtYen(amount)}</div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function renderTable() {
+  const tbody = document.getElementById('dealsBody');
+  tbody.innerHTML = '';
+  if (deals.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">案件がまだありません。上のフォームから追加してください。</td></tr>';
+    return;
+  }
+  const sorted = [...deals].sort((a, b) => new Date(a.start) - new Date(b.start));
+  sorted.forEach(d => {
+    const start = new Date(d.start);
+    const end = new Date(d.end);
+    const months = (end.getFullYear()*12+end.getMonth()) - (start.getFullYear()*12+start.getMonth()) + 1;
+    const perMonth = months > 0 ? d.amount / months : 0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="status-badge badge-${d.status}">${d.status}</span></td>
+      <td>${escapeHtml(d.client)}</td>
+      <td>${escapeHtml(d.project || '')}</td>
+      <td>${fmtDate(d.start)}</td>
+      <td>${fmtDate(d.end)}</td>
+      <td class="num">${fmtYen(d.amount)}</td>
+      <td class="num">${fmtYen(perMonth)}</td>
+      <td class="num">${months}ヶ月</td>
+      <td>${escapeHtml(d.note || '')}</td>
+      <td>
+        <div class="row-actions">
+          <button class="icon-btn" onclick="editDeal('${d.id}')">編集</button>
+          <button class="icon-btn delete" onclick="deleteDeal('${d.id}')">削除</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function escapeHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ========== CRUD ==========
+function saveDeal() {
+  const deal = {
+    id: editingId || String(Date.now()) + Math.random().toString(36).slice(2, 8),
+    status: document.getElementById('f_status').value,
+    client: document.getElementById('f_client').value.trim(),
+    project: document.getElementById('f_project').value.trim(),
+    start: document.getElementById('f_start').value,
+    end: document.getElementById('f_end').value,
+    amount: Number(document.getElementById('f_amount').value) || 0,
+    note: document.getElementById('f_note').value.trim()
+  };
+  if (!deal.client) { alert('クライアント名を入力してください'); return; }
+  if (!deal.start || !deal.end) { alert('契約開始日と終了日を入力してください'); return; }
+  if (new Date(deal.end) < new Date(deal.start)) { alert('終了日は開始日以降にしてください'); return; }
+  if (deal.amount <= 0) { alert('契約金額を入力してください'); return; }
+
+  if (editingId) {
+    deals = deals.map(d => d.id === editingId ? deal : d);
+  } else {
+    deals.push(deal);
+  }
+  save();
+  resetForm();
+  render();
+}
+
+function editDeal(id) {
+  const d = deals.find(x => x.id === id);
+  if (!d) return;
+  editingId = id;
+  document.getElementById('f_status').value = d.status;
+  document.getElementById('f_client').value = d.client;
+  document.getElementById('f_project').value = d.project || '';
+  document.getElementById('f_start').value = d.start;
+  document.getElementById('f_end').value = d.end;
+  document.getElementById('f_amount').value = d.amount;
+  document.getElementById('f_note').value = d.note || '';
+  document.getElementById('saveBtn').textContent = '更新する';
+  window.scrollTo({ top: document.querySelector('.form-grid').offsetTop - 80, behavior: 'smooth' });
+}
+
+function deleteDeal(id) {
+  const d = deals.find(x => x.id === id);
+  if (!d) return;
+  if (!confirm(`「${d.client} / ${d.project || '(案件名なし)'}」を削除しますか？`)) return;
+  deals = deals.filter(x => x.id !== id);
+  save();
+  render();
+}
+
+function resetForm() {
+  editingId = null;
+  document.getElementById('f_status').value = '実績';
+  document.getElementById('f_client').value = '';
+  document.getElementById('f_project').value = '';
+  document.getElementById('f_start').value = '';
+  document.getElementById('f_end').value = '';
+  document.getElementById('f_amount').value = '';
+  document.getElementById('f_note').value = '';
+  document.getElementById('saveBtn').textContent = '案件を追加';
+}
+
+// ========== CSV / Download ==========
+function toCSV(rows) {
+  return rows.map(r =>
+    r.map(c => {
+      const s = c == null ? '' : String(c);
+      return `"${s.replace(/"/g, '""')}"`;
+    }).join(',')
+  ).join('\r\n');
+}
+
+function downloadFile(content, filename, mime) {
+  const blob = new Blob(['\uFEFF' + content], { type: (mime || 'text/csv') + ';charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+}
+
+function dateStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function buildDealsCSV() {
+  const headers = ['ステータス','クライアント','案件名','開始日','終了日','契約金額','月額','契約月数','備考'];
+  const rows = deals.map(d => {
+    const start = new Date(d.start);
+    const end = new Date(d.end);
+    const months = (end.getFullYear()*12+end.getMonth()) - (start.getFullYear()*12+start.getMonth()) + 1;
+    const perMonth = months > 0 ? Math.round(d.amount / months) : 0;
+    return [d.status, d.client, d.project||'', d.start, d.end, d.amount, perMonth, months, d.note||''];
+  });
+  return toCSV([headers, ...rows]);
+}
+
+function buildTargetsCSV() {
+  const headers = ['年月','月別目標'];
+  const rows = MONTHS.map((m, i) => [
+    `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`,
+    monthlyTargets[i] || 0
+  ]);
+  rows.push(['合計', annualTarget()]);
+  return toCSV([headers, ...rows]);
+}
+
+function buildMonthlyCSV() {
+  const data = monthlyTotalsByStatus();
+  const monthCols = MONTHS.map(m => `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`);
+  const headers = ['区分', ...monthCols, '合計'];
+  const rows = [];
+  STATUSES.forEach(st => {
+    const vals = data[st].map(v => Math.round(v));
+    const sum = vals.reduce((a, b) => a + b, 0);
+    rows.push([st, ...vals, sum]);
+  });
+  const totals = MONTHS.map((_, i) =>
+    Math.round(STATUSES.reduce((s, st) => s + data[st][i], 0))
+  );
+  rows.push(['月合計', ...totals, totals.reduce((a, b) => a + b, 0)]);
+  rows.push(['月別目標', ...monthlyTargets.map(v => Math.round(v || 0)), annualTarget()]);
+  const diff = totals.map((v, i) => v - (monthlyTargets[i] || 0));
+  rows.push(['差分（合計-目標）', ...diff, diff.reduce((a,b)=>a+b,0)]);
+  return toCSV([headers, ...rows]);
+}
+
+function exportDealsCSV() {
+  downloadFile(buildDealsCSV(), `案件一覧_${dateStr()}.csv`);
+}
+
+function exportTargetsCSV() {
+  downloadFile(buildTargetsCSV(), `月別目標_${dateStr()}.csv`);
+}
+
+function exportMonthlyCSV() {
+  downloadFile(buildMonthlyCSV(), `月次集計_${dateStr()}.csv`);
+}
+
+function exportBackupJSON() {
+  const payload = {
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    store: store
+  };
+  downloadFile(JSON.stringify(payload, null, 2), `売上計画バックアップ_${dateStr()}.json`, 'application/json');
+}
+
+function buildMonthlyPlanCSV() {
+  const headers = ['年月','目標','実績','達成率','前年実績','前年比'];
+  const actual = MONTHS.map((_, i) => {
+    const data = monthlyTotalsByStatus();
+    return STATUSES.reduce((s, st) => s + data[st][i], 0);
+  });
+  const prev = monthlyActualForFY(currentFY - 1);
+  const rows = MONTHS.map((m, i) => {
+    const t = monthlyTargets[i] || 0;
+    const a = Math.round(actual[i]);
+    const p = Math.round(prev[i]);
+    const rate = t > 0 ? ((a / t) * 100).toFixed(1) + '%' : '';
+    const yoy = p > 0 ? ((a / p) * 100).toFixed(1) + '%' : '';
+    return [
+      `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`,
+      t, a, rate, p, yoy
+    ];
+  });
+  const totalT = annualTarget();
+  const totalA = actual.reduce((s, v) => s + v, 0);
+  const totalP = prev.reduce((s, v) => s + v, 0);
+  rows.push([
+    '合計', totalT, Math.round(totalA),
+    totalT > 0 ? (totalA / totalT * 100).toFixed(1) + '%' : '',
+    Math.round(totalP),
+    totalP > 0 ? (totalA / totalP * 100).toFixed(1) + '%' : ''
+  ]);
+  return toCSV([headers, ...rows]);
+}
+
+function exportMonthlyPlanCSV() {
+  downloadFile(buildMonthlyPlanCSV(), `月別目標実績_FY${currentFY}_${dateStr()}.csv`);
+}
+
+function downloadMonthlyPlanTemplate() {
+  const headers = ['年月','目標','実績','達成率','前年実績','前年比'];
+  const rows = MONTHS.map(m => [
+    `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`,
+    '', '', '', '', ''
+  ]);
+  downloadFile(toCSV([headers, ...rows]), `月別目標実績テンプレート_FY${currentFY}.csv`);
+}
+
+function triggerMonthlyPlanUpload() {
+  document.getElementById('monthlyPlanFile').click();
+}
+
+function handleMonthlyPlanUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const text = ev.target.result.replace(/^\uFEFF/, '');
+    try {
+      const rows = parseCSV(text);
+      if (rows.length < 2) { alert('データ行がありません'); return; }
+      const map = {};
+      for (let i = 1; i < rows.length; i++) {
+        const [ym, target] = rows[i];
+        if (!ym || ym === '合計') continue;
+        const n = Number(String(target || '').replace(/[^\d.-]/g, '')) || 0;
+        map[ym.trim()] = n;
+      }
+      if (!confirm(`FY${currentFY} の月別目標を読み込んだ値で上書きします。よろしいですか？\n（実績列は案件から自動計算されるため読み込みません）`)) return;
+      const newTargets = MONTHS.map(m => {
+        const key = `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`;
+        return map[key] || 0;
+      });
+      currentData().monthlyTargets = newTargets;
+      save();
+      render();
+      alert('月別目標を読み込みました');
+    } catch (err) {
+      alert('読み込みに失敗しました: ' + err.message);
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+function downloadDealsTemplate() {
+  const headers = ['ステータス','クライアント','案件名','開始日','終了日','契約金額','月額','契約月数','備考'];
+  const sample = ['見込み中','株式会社サンプル','コンサルティング案件','2026-04-01','2026-09-30','600000','','','例）月次定例1回／月'];
+  const csv = toCSV([headers, sample]);
+  downloadFile(csv, `案件一覧テンプレート_${dateStr()}.csv`);
+}
+
+function downloadDealsTemplateEmpty() {
+  const headers = ['ステータス','クライアント','案件名','開始日','終了日','契約金額','月額','契約月数','備考'];
+  downloadFile(toCSV([headers]), `案件一覧テンプレート_空_${dateStr()}.csv`);
+}
+
+function downloadTargetsTemplate() {
+  const headers = ['年月','月別目標'];
+  const rows = MONTHS.map(m => [
+    `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`,
+    ''
+  ]);
+  downloadFile(toCSV([headers, ...rows]), `月別目標テンプレート_${dateStr()}.csv`);
+}
+
+function downloadAll() {
+  // Browsers can't create ZIPs without a library; download sequentially.
+  exportDealsCSV();
+  setTimeout(exportTargetsCSV, 250);
+  setTimeout(exportMonthlyCSV, 500);
+  setTimeout(exportBackupJSON, 750);
+}
+
+// ========== Upload ==========
+let uploadMode = null;
+
+function triggerUpload(mode) {
+  uploadMode = mode;
+  const input = document.getElementById('uploadFile');
+  input.accept = (mode === 'backup') ? '.json' : '.csv';
+  input.click();
+}
+
+function handleUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const text = ev.target.result.replace(/^\uFEFF/, '');
+    try {
+      if (uploadMode === 'deals' || uploadMode === 'dealsReplace') {
+        importDealsCSV(text, uploadMode === 'dealsReplace');
+      } else if (uploadMode === 'targets') {
+        importTargetsCSV(text);
+      } else if (uploadMode === 'backup') {
+        importBackupJSON(text);
+      }
+    } catch (err) {
+      alert('読み込みに失敗しました: ' + err.message);
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length);
+  return lines.map(parseCSVLine);
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '';
+  let inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (inQuote && line[i+1] === '"') { cur += '"'; i++; }
+      else inQuote = !inQuote;
+    } else if (c === ',' && !inQuote) {
+      result.push(cur); cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+function importDealsCSV(text, replace) {
+  const rows = parseCSV(text);
+  if (rows.length < 2) { alert('データ行がありません'); return; }
+  const imported = [];
+  for (let i = 1; i < rows.length; i++) {
+    const parts = rows[i];
+    if (parts.length < 6) continue;
+    const client = (parts[1] || '').trim();
+    if (!client) continue;
+    imported.push({
+      id: String(Date.now()) + i + Math.random().toString(36).slice(2,6),
+      status: (parts[0] || '見込み中').trim(),
+      client: client,
+      project: (parts[2] || '').trim(),
+      start: (parts[3] || '').trim(),
+      end: (parts[4] || '').trim(),
+      amount: Number(String(parts[5]).replace(/[^\d.-]/g, '')) || 0,
+      note: (parts[8] || parts[6] || '').trim()
+    });
+  }
+  if (imported.length === 0) { alert('有効なデータがありませんでした'); return; }
+  const msg = replace
+    ? `${imported.length}件で既存データを全て置き換えます。よろしいですか？`
+    : `${imported.length}件を既存データに追加します。よろしいですか？`;
+  if (!confirm(msg)) return;
+  deals = replace ? imported : deals.concat(imported);
+  save();
+  render();
+  alert(`${imported.length}件の案件を読み込みました`);
+}
+
+function importTargetsCSV(text) {
+  const rows = parseCSV(text);
+  if (rows.length < 2) { alert('データ行がありません'); return; }
+  const map = {};
+  for (let i = 1; i < rows.length; i++) {
+    const [ym, val] = rows[i];
+    if (!ym || ym === '合計') continue;
+    const n = Number(String(val).replace(/[^\d.-]/g, '')) || 0;
+    map[ym.trim()] = n;
+  }
+  if (!confirm('月別目標を読み込んだ値で上書きします。よろしいですか？')) return;
+  monthlyTargets = MONTHS.map(m => {
+    const key = `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`;
+    return map[key] || 0;
+  });
+  save();
+  render();
+  alert('月別目標を読み込みました');
+}
+
+function importBackupJSON(text) {
+  const data = JSON.parse(text);
+  if (!data) { alert('バックアップの形式が正しくありません'); return; }
+  if (!confirm('既存データを全てバックアップで置き換えます。よろしいですか？')) return;
+  if (data.version === 2 && data.store) {
+    store = data.store;
+    if (!store.data) store.data = {};
+    if (!Array.isArray(store.fiscalYears) || store.fiscalYears.length === 0) {
+      store.fiscalYears = [store.currentFY || 2026];
+    }
+    ensureFY(store.currentFY);
+    currentFY = store.currentFY;
+    MONTHS = buildMonths(currentFY);
+  } else if (Array.isArray(data.deals)) {
+    // v1 fallback
+    ensureFY(currentFY);
+    currentData().deals = data.deals;
+    if (Array.isArray(data.monthlyTargets) && data.monthlyTargets.length === 12) {
+      currentData().monthlyTargets = data.monthlyTargets;
+    }
+  } else {
+    alert('バックアップの形式が正しくありません'); return;
+  }
+  save();
+  render();
+  alert('バックアップから復元しました');
+}
+
+// ========== Dropdown ==========
+function toggleDropdown(id) {
+  const el = document.getElementById(id);
+  const isOpen = el.classList.contains('open');
+  closeDropdowns();
+  if (!isOpen) el.classList.add('open');
+}
+
+function closeDropdowns() {
+  document.querySelectorAll('.dropdown.open').forEach(el => el.classList.remove('open'));
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.dropdown')) closeDropdowns();
+});
+
+// ========== Init ==========
+load();
+render();
+</script>
+
+</body>
+</html>
