@@ -764,13 +764,19 @@
 
 <header>
   <div>
-    <h1>売上計画ダッシュボード <span style="font-size:12px; opacity:0.7; font-weight:400;">ver2</span></h1>
+    <h1>売上計画ダッシュボード <span style="font-size:12px; opacity:0.7; font-weight:400;">ver2.1</span></h1>
     <div class="subtitle" id="fyLabel">2026年4月 〜 2027年3月（年度）</div>
   </div>
-  <div class="fy-selector">
-    <label>年度</label>
-    <select id="fySelect" onchange="changeFY(this.value)"></select>
-    <button onclick="addFY()">＋ 新年度</button>
+  <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+    <div id="saveStatus" style="font-size:11px; opacity:0.8; background:rgba(255,255,255,0.15); padding:6px 12px; border-radius:6px; white-space:nowrap;">
+      <span id="saveIcon">✓</span> <span id="saveText">保存済み</span>
+    </div>
+    <button onclick="exportBackupJSON()" style="background:rgba(255,255,255,0.9); color:#1e40af; padding:6px 12px; font-size:11px; border-radius:6px; border:none; font-weight:600; cursor:pointer;" title="JSONバックアップをダウンロード">💾 バックアップ</button>
+    <div class="fy-selector">
+      <label>年度</label>
+      <select id="fySelect" onchange="changeFY(this.value)"></select>
+      <button onclick="addFY()">＋ 新年度</button>
+    </div>
   </div>
 </header>
 
@@ -1089,9 +1095,59 @@ Object.defineProperty(window, 'monthlyTargets', {
 });
 
 // ========== Storage ==========
+let _lastSavedJSON = '';
+let _hasUnsaved = false;
+
 function save() {
-  localStorage.setItem('uriage_store_v2', JSON.stringify(store));
+  const json = JSON.stringify(store);
+  localStorage.setItem('uriage_store_v2', json);
+  _lastSavedJSON = json;
+  _hasUnsaved = false;
+  updateSaveStatus();
 }
+
+function updateSaveStatus() {
+  const icon = document.getElementById('saveIcon');
+  const text = document.getElementById('saveText');
+  if (!icon || !text) return;
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  icon.textContent = '✓';
+  text.textContent = `${hh}:${mm}:${ss} に自動保存済み`;
+  icon.style.color = '#86efac';
+}
+
+function markUnsaved() {
+  _hasUnsaved = true;
+  const icon = document.getElementById('saveIcon');
+  const text = document.getElementById('saveText');
+  if (!icon || !text) return;
+  icon.textContent = '●';
+  icon.style.color = '#fbbf24';
+  text.textContent = '未保存の変更あり...';
+}
+
+// ページを閉じる前に警告
+window.addEventListener('beforeunload', (e) => {
+  if (_hasUnsaved) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// 入力変更を検知して自動保存（デバウンス付き）
+let _autoSaveTimer = null;
+function scheduleAutoSave() {
+  markUnsaved();
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(() => { save(); render(); }, 1500);
+}
+
+// 全てのinput/select変更を監視して自動保存
+document.addEventListener('input', scheduleAutoSave);
+document.addEventListener('change', scheduleAutoSave);
 
 function load() {
   const raw = localStorage.getItem('uriage_store_v2');
