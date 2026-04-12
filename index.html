@@ -771,7 +771,11 @@
     <div id="saveStatus" style="font-size:11px; opacity:0.8; background:rgba(255,255,255,0.15); padding:6px 12px; border-radius:6px; white-space:nowrap;">
       <span id="saveIcon">✓</span> <span id="saveText">保存済み</span>
     </div>
-    <button onclick="exportBackupJSON()" style="background:rgba(255,255,255,0.9); color:#1e40af; padding:6px 12px; font-size:11px; border-radius:6px; border:none; font-weight:600; cursor:pointer;" title="JSONバックアップをダウンロード">💾 バックアップ</button>
+    <div id="driveBackupStatus" style="font-size:11px; opacity:0.8; background:rgba(255,255,255,0.15); padding:6px 12px; border-radius:6px; white-space:nowrap; cursor:pointer;" onclick="manualDriveBackup()" title="クリックで手動バックアップ">
+      <span id="driveIcon">☁</span> <span id="driveText">Drive: 未設定</span>
+    </div>
+    <button onclick="exportBackupJSON()" style="background:rgba(255,255,255,0.9); color:#1e40af; padding:6px 12px; font-size:11px; border-radius:6px; border:none; font-weight:600; cursor:pointer;" title="JSONバックアップをダウンロード">💾 ローカル保存</button>
+    <button onclick="openDriveSettings()" style="background:rgba(255,255,255,0.9); color:#1e40af; padding:6px 12px; font-size:11px; border-radius:6px; border:none; font-weight:600; cursor:pointer;" title="Google Drive バックアップ設定">⚙ Drive設定</button>
     <div class="fy-selector">
       <label>年度</label>
       <select id="fySelect" onchange="changeFY(this.value)"></select>
@@ -2213,9 +2217,164 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('.dropdown')) closeDropdowns();
 });
 
+// ========== Google Drive 自動バックアップ ==========
+const DRIVE_BACKUP_KEY = 'uriage_drive_backup_config';
+const DRIVE_BACKUP_LOG_KEY = 'uriage_drive_backup_log';
+
+function getDriveConfig() {
+  try { return JSON.parse(localStorage.getItem(DRIVE_BACKUP_KEY)) || {}; } catch(e) { return {}; }
+}
+
+function saveDriveConfig(config) {
+  localStorage.setItem(DRIVE_BACKUP_KEY, JSON.stringify(config));
+}
+
+function getDriveLog() {
+  try { return JSON.parse(localStorage.getItem(DRIVE_BACKUP_LOG_KEY)) || {}; } catch(e) { return {}; }
+}
+
+function saveDriveLog(log) {
+  localStorage.setItem(DRIVE_BACKUP_LOG_KEY, JSON.stringify(log));
+}
+
+function openDriveSettings() {
+  const config = getDriveConfig();
+  const currentUrl = config.gasUrl || '';
+  const url = prompt(
+    'Google Apps Script のデプロイURLを入力してください。\n\n' +
+    '※ 設定手順:\n' +
+    '1. script.google.com で新しいプロジェクトを作成\n' +
+    '2. gas-backup-script.js のコードを貼り付け\n' +
+    '3. 「デプロイ」→「新しいデプロイ」→「ウェブアプリ」\n' +
+    '4. アクセス:「全員」→ デプロイ\n' +
+    '5. 表示されたURLをここに貼り付け\n\n' +
+    '現在の設定: ' + (currentUrl ? currentUrl.substring(0, 50) + '...' : '未設定'),
+    currentUrl
+  );
+  if (url === null) return; // キャンセル
+  if (url === '') {
+    saveDriveConfig({});
+    updateDriveStatusUI();
+    alert('Drive バックアップ設定を解除しました');
+    return;
+  }
+  saveDriveConfig({ gasUrl: url.trim(), enabled: true });
+  updateDriveStatusUI();
+  alert('設定を保存しました。テストバックアップを実行します...');
+  executeDriveBackup(true);
+}
+
+async function executeDriveBackup(isManual) {
+  const config = getDriveConfig();
+  if (!config.gasUrl) {
+    if (isManual) alert('Drive バックアップが設定されていません。\n「⚙ Drive設定」からURLを設定してください。');
+    return;
+  }
+
+  const driveIcon = document.getElementById('driveIcon');
+  const driveText = document.getElementById('driveText');
+  if (driveIcon) { driveIcon.textContent = '⟳'; driveIcon.style.color = '#fbbf24'; }
+  if (driveText) driveText.textContent = 'Drive: バックアップ中...';
+
+  try {
+    const payload = {
+      version: 2,
+      store: store,
+      exportedAt: new Date().toISOString(),
+      source: 'auto-backup'
+    };
+
+    const response = await fetch(config.gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload),
+      mode: 'no-cors'
+    });
+
+    // no-cors ではレスポンスが読めないので、送信成功=バックアップ成功とみなす
+    const now = new Date();
+    const log = getDriveLog();
+    log.lastBackup = now.toISOString();
+    log.lastStatus = 'success';
+    saveDriveLog(log);
+    updateDriveStatusUI();
+
+    if (isManual) alert('Drive にバックアップを送信しました。\nGoogle Drive の「売上計画バックアップ」フォルダを確認してください。');
+
+  } catch (error) {
+    const log = getDriveLog();
+    log.lastStatus = 'error';
+    log.lastError = error.message;
+    saveDriveLog(log);
+
+    if (driveIcon) { driveIcon.textContent = '✗'; driveIcon.style.color = '#f87171'; }
+    if (driveText) driveText.textContent = 'Drive: バックアップ失敗';
+
+    if (isManual) alert('バックアップに失敗しました: ' + error.message);
+  }
+}
+
+function manualDriveBackup() {
+  const config = getDriveConfig();
+  if (!config.gasUrl) {
+    openDriveSettings();
+    return;
+  }
+  executeDriveBackup(true);
+}
+
+function checkAutoBackup() {
+  const config = getDriveConfig();
+  if (!config.gasUrl || !config.enabled) return;
+
+  const log = getDriveLog();
+  const lastBackup = log.lastBackup ? new Date(log.lastBackup) : null;
+  const now = new Date();
+
+  // 24時間以上経過していたら自動バックアップ
+  if (!lastBackup || (now - lastBackup) > 24 * 60 * 60 * 1000) {
+    console.log('[自動バックアップ] 24時間以上経過。Drive にバックアップを実行します。');
+    executeDriveBackup(false);
+  }
+}
+
+function updateDriveStatusUI() {
+  const driveIcon = document.getElementById('driveIcon');
+  const driveText = document.getElementById('driveText');
+  if (!driveIcon || !driveText) return;
+
+  const config = getDriveConfig();
+  const log = getDriveLog();
+
+  if (!config.gasUrl) {
+    driveIcon.textContent = '☁';
+    driveIcon.style.color = '#94a3b8';
+    driveText.textContent = 'Drive: 未設定';
+    return;
+  }
+
+  if (log.lastBackup) {
+    const d = new Date(log.lastBackup);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    driveIcon.textContent = '✓';
+    driveIcon.style.color = '#86efac';
+    driveText.textContent = `Drive: ${mm}/${dd} ${hh}:${mi}`;
+  } else {
+    driveIcon.textContent = '☁';
+    driveIcon.style.color = '#fbbf24';
+    driveText.textContent = 'Drive: 未バックアップ';
+  }
+}
+
 // ========== Init ==========
 load();
 render();
+updateDriveStatusUI();
+// ページ読み込み後に自動バックアップチェック（3秒後）
+setTimeout(checkAutoBackup, 3000);
 </script>
 
 </body>
