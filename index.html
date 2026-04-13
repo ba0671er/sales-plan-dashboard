@@ -910,6 +910,187 @@
   .archive-content.open {
     display: block;
   }
+
+  /* Sortable headers */
+  th.sortable {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  th.sortable:hover { color: var(--primary); }
+  .sort-indicator {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 9px;
+    color: var(--text-sub);
+    width: 10px;
+  }
+  .sort-indicator.active { color: var(--primary); font-weight: 700; }
+
+  /* Row highlight flash after edit */
+  @keyframes row-flash {
+    0%   { background: #fef3c7; }
+    100% { background: transparent; }
+  }
+  .row-flash td { animation: row-flash 1.8s ease-out; }
+
+  /* Task edit-mode form */
+  .card.editing {
+    border: 2px solid #fbbf24;
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.15);
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 640px;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+    overflow: hidden;
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: #f9fafb;
+  }
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--text-sub);
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+  .modal-close:hover { background: #f3f4f6; color: var(--text); }
+  .modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .modal-footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    background: #f9fafb;
+  }
+
+  /* Settings sections inside modal */
+  .settings-section {
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px dashed var(--border);
+  }
+  .settings-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .settings-section h4 {
+    margin: 0 0 4px 0;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .settings-hint {
+    margin: 0 0 12px 0;
+    font-size: 11px;
+    color: var(--text-sub);
+    line-height: 1.5;
+  }
+  .settings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .settings-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: #f9fafb;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .settings-item input[type="text"] {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  .settings-item input[type="color"] {
+    width: 34px;
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 0;
+  }
+  .settings-item label {
+    font-size: 12px;
+    color: var(--text-sub);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .settings-item .btn-remove {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--danger);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .settings-item .btn-remove:hover { background: #fef2f2; border-color: var(--danger); }
+  .settings-item .btn-remove:disabled { opacity: 0.4; cursor: not-allowed; }
+  .settings-add {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px;
+    background: #eff6ff;
+    border-radius: 6px;
+  }
+  .settings-add input[type="text"] {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: inherit;
+    min-width: 140px;
+  }
+  .settings-add input[type="color"] {
+    width: 34px;
+    height: 30px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  /* Keep form action buttons inline even when cancel is shown */
+  .form-actions button { flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -1230,60 +1411,21 @@
       </div>
     </div>
 
-    <!-- Task Filters -->
-    <div class="section">
-      <div class="card">
-        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-          <div class="form-field" style="min-width:160px;">
-            <label>カテゴリで絞込</label>
-            <select id="taskFilterCategory" onchange="renderTaskTable()">
-              <option value="">すべて</option>
-              <option value="自社EC">自社EC</option>
-              <option value="ECコンサル">ECコンサル</option>
-              <option value="コーチング">コーチング</option>
-              <option value="その他">その他</option>
-            </select>
-          </div>
-          <div class="form-field" style="min-width:160px;">
-            <label>ステータスで絞込</label>
-            <select id="taskFilterStatus" onchange="renderTaskTable()">
-              <option value="">すべて</option>
-              <option value="未着手">未着手</option>
-              <option value="着手中">着手中</option>
-              <option value="待機中">待機中</option>
-              <option value="一時完了">一時完了</option>
-              <option value="完了">完了</option>
-            </select>
-          </div>
-          <div class="form-field" style="min-width:200px;">
-            <label>キーワード検索</label>
-            <input type="text" id="taskFilterKeyword" placeholder="タスク内容・コメント" oninput="renderTaskTable()" />
-          </div>
-          <div class="form-field">
-            <label>表示順</label>
-            <select id="taskSortOrder" onchange="renderTaskTable()">
-              <option value="due">期日順</option>
-              <option value="created">追加順（新しい）</option>
-              <option value="category">カテゴリ順</option>
-            </select>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Add/Edit Task Form -->
     <div class="section">
-      <h2 class="section-title">タスクの追加・編集</h2>
-      <div class="card">
+      <h2 class="section-title" id="taskFormTitle">タスクの追加・編集</h2>
+      <div class="card" id="taskFormCard">
+        <div id="taskEditBanner" style="display:none; background:#fef3c7; border:1px solid #fbbf24; border-radius:6px; padding:8px 12px; margin-bottom:12px; font-size:12px; color:#92400e;">
+          ✎ <strong>編集モード</strong>: <span id="taskEditTargetLabel"></span> を編集中です。変更後「更新する」を押してください。
+        </div>
         <div class="form-grid">
           <div class="form-field">
             <label>カテゴリ</label>
-            <select id="t_category">
-              <option value="自社EC">自社EC</option>
-              <option value="ECコンサル">ECコンサル</option>
-              <option value="コーチング">コーチング</option>
-              <option value="その他">その他</option>
-            </select>
+            <select id="t_category"></select>
+          </div>
+          <div class="form-field">
+            <label>クライアント</label>
+            <select id="t_client"></select>
           </div>
           <div class="form-field">
             <label>期日</label>
@@ -1291,15 +1433,9 @@
           </div>
           <div class="form-field">
             <label>ステータス</label>
-            <select id="t_status">
-              <option value="未着手">未着手</option>
-              <option value="着手中">着手中</option>
-              <option value="待機中">待機中</option>
-              <option value="一時完了">一時完了</option>
-              <option value="完了">完了</option>
-            </select>
+            <select id="t_status"></select>
           </div>
-          <div class="form-field">
+          <div class="form-field full">
             <label>URL</label>
             <input type="url" id="t_url" placeholder="https://..." />
           </div>
@@ -1335,8 +1471,34 @@
           </div>
         </div>
         <div class="form-actions">
-          <button class="btn-secondary" onclick="resetTaskForm()">クリア</button>
-          <button class="btn-primary" id="taskSaveBtn" onclick="saveTask()">タスクを追加</button>
+          <button type="button" class="btn-secondary" id="taskCancelBtn" style="display:none;" onclick="resetTaskForm()">キャンセル</button>
+          <button type="button" class="btn-secondary" onclick="resetTaskForm()">クリア</button>
+          <button type="button" class="btn-primary" id="taskSaveBtn" onclick="saveTask()">タスクを追加</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Task Filters (moved: between form and list) -->
+    <div class="section">
+      <div class="card">
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+          <div class="form-field" style="min-width:160px;">
+            <label>カテゴリで絞込</label>
+            <select id="taskFilterCategory" onchange="renderTaskTable()"></select>
+          </div>
+          <div class="form-field" style="min-width:160px;">
+            <label>クライアントで絞込</label>
+            <select id="taskFilterClient" onchange="renderTaskTable()"></select>
+          </div>
+          <div class="form-field" style="min-width:160px;">
+            <label>ステータスで絞込</label>
+            <select id="taskFilterStatus" onchange="renderTaskTable()"></select>
+          </div>
+          <div class="form-field" style="min-width:200px; flex:1;">
+            <label>キーワード検索</label>
+            <input type="text" id="taskFilterKeyword" placeholder="タスク内容・コメント" oninput="renderTaskTable()" />
+          </div>
+          <button type="button" class="btn-secondary" onclick="clearTaskFilters()">絞込クリア</button>
         </div>
       </div>
     </div>
@@ -1346,32 +1508,33 @@
       <div class="toolbar">
         <h2 class="section-title" style="margin:0;">タスク一覧</h2>
         <div class="toolbar-right">
+          <button type="button" class="btn-secondary" onclick="openTaskSettingsModal()">⚙ 設定</button>
           <div class="dropdown" id="taskDownloadDropdown">
-            <button class="btn-primary" onclick="toggleDropdown('taskDownloadDropdown')">⬇ ダウンロード ▾</button>
+            <button type="button" class="btn-primary" onclick="toggleDropdown('taskDownloadDropdown')">⬇ ダウンロード ▾</button>
             <div class="dropdown-menu">
-              <button class="dropdown-item" onclick="exportTasksCSV(); closeDropdowns();">
+              <button type="button" class="dropdown-item" onclick="exportTasksCSV(); closeDropdowns();">
                 タスク一覧 CSV
                 <span class="sub">アクティブなタスク</span>
               </button>
-              <button class="dropdown-item" onclick="exportArchivedTasksCSV(); closeDropdowns();">
+              <button type="button" class="dropdown-item" onclick="exportArchivedTasksCSV(); closeDropdowns();">
                 アーカイブ一覧 CSV
                 <span class="sub">アーカイブ済みタスク</span>
               </button>
-              <button class="dropdown-item divider" onclick="exportBackupJSON(); closeDropdowns();">
+              <button type="button" class="dropdown-item divider" onclick="exportBackupJSON(); closeDropdowns();">
                 バックアップ（JSON）
                 <span class="sub">全データをまるごと保存</span>
               </button>
             </div>
           </div>
-          <button class="btn-secondary" onclick="downloadTasksTemplate()">📄 テンプレート</button>
+          <button type="button" class="btn-secondary" onclick="downloadTasksTemplate()">📄 テンプレート</button>
           <div class="dropdown" id="taskUploadDropdown">
-            <button class="btn-secondary" onclick="toggleDropdown('taskUploadDropdown')">⬆ アップロード ▾</button>
+            <button type="button" class="btn-secondary" onclick="toggleDropdown('taskUploadDropdown')">⬆ アップロード ▾</button>
             <div class="dropdown-menu">
-              <button class="dropdown-item" onclick="triggerTaskUpload('tasks'); closeDropdowns();">
+              <button type="button" class="dropdown-item" onclick="triggerTaskUpload('tasks'); closeDropdowns();">
                 タスク CSV を読み込み
                 <span class="sub">既存タスクに追加</span>
               </button>
-              <button class="dropdown-item" onclick="triggerTaskUpload('tasksReplace'); closeDropdowns();">
+              <button type="button" class="dropdown-item" onclick="triggerTaskUpload('tasksReplace'); closeDropdowns();">
                 タスク CSV で置き換え
                 <span class="sub">既存タスクを全置換</span>
               </button>
@@ -1386,11 +1549,12 @@
             <thead>
               <tr>
                 <th style="width:28px;"></th>
-                <th>カテゴリ</th>
-                <th>タスク内容</th>
-                <th>期日</th>
-                <th>ステータス</th>
-                <th>繰り返し</th>
+                <th class="sortable" onclick="sortTasksBy('category')">カテゴリ<span class="sort-indicator" id="sortInd_category"></span></th>
+                <th class="sortable" onclick="sortTasksBy('client')">クライアント<span class="sort-indicator" id="sortInd_client"></span></th>
+                <th class="sortable" onclick="sortTasksBy('content')">タスク内容<span class="sort-indicator" id="sortInd_content"></span></th>
+                <th class="sortable" onclick="sortTasksBy('dueDate')">期日<span class="sort-indicator" id="sortInd_dueDate"></span></th>
+                <th class="sortable" onclick="sortTasksBy('status')">ステータス<span class="sort-indicator" id="sortInd_status"></span></th>
+                <th class="sortable" onclick="sortTasksBy('recurring')">繰り返し<span class="sort-indicator" id="sortInd_recurring"></span></th>
                 <th>URL</th>
                 <th>コメント</th>
                 <th></th>
@@ -1416,6 +1580,7 @@
               <thead>
                 <tr>
                   <th>カテゴリ</th>
+                  <th>クライアント</th>
                   <th>タスク内容</th>
                   <th>期日</th>
                   <th>完了日</th>
@@ -1436,6 +1601,58 @@
 
   </div><!-- /tasks-tab -->
 
+</div>
+
+<!-- Task Settings Modal -->
+<div class="modal-overlay" id="taskSettingsModal" style="display:none;" onclick="if(event.target===this)closeTaskSettingsModal()">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 style="margin:0; font-size:18px;">⚙ タスク管理設定</h3>
+      <button type="button" class="modal-close" onclick="closeTaskSettingsModal()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="settings-section">
+        <h4>カテゴリ</h4>
+        <p class="settings-hint">タスクのカテゴリを追加・編集・削除できます。既存タスクが使っているカテゴリは削除するとタスク側で孤立した扱いになります。</p>
+        <div id="settingCategoriesList" class="settings-list"></div>
+        <div class="settings-add">
+          <input type="text" id="newCategoryInput" placeholder="新しいカテゴリ名" />
+          <input type="color" id="newCategoryColor" value="#0ea5e9" />
+          <button type="button" class="btn-primary" onclick="addCategory()">追加</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>ステータス</h4>
+        <p class="settings-hint">「完了扱い」にチェックしたステータスは、1週間後に自動でアーカイブへ移動します（繰り返し業務は対象外）。</p>
+        <div id="settingStatusesList" class="settings-list"></div>
+        <div class="settings-add">
+          <input type="text" id="newStatusInput" placeholder="新しいステータス名" />
+          <input type="color" id="newStatusColor" value="#3b82f6" />
+          <label style="font-size:12px; display:flex; align-items:center; gap:4px;">
+            <input type="checkbox" id="newStatusCompleted" /> 完了扱い
+          </label>
+          <button type="button" class="btn-primary" onclick="addStatus()">追加</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>クライアント</h4>
+        <p class="settings-hint">タスクに紐付けるクライアント一覧を管理します。</p>
+        <div id="settingClientsList" class="settings-list"></div>
+        <div class="settings-add">
+          <input type="text" id="newClientInput" placeholder="新しいクライアント名" />
+          <input type="color" id="newClientColor" value="#6366f1" />
+          <button type="button" class="btn-primary" onclick="addClient()">追加</button>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-secondary" onclick="closeTaskSettingsModal()">閉じる</button>
+    </div>
+  </div>
 </div>
 
 <div class="tooltip" id="tooltip"></div>
@@ -1478,16 +1695,35 @@ let store = {
   fiscalYears: [2026],
   data: {},
   tasks: [],
-  archivedTasks: []
+  archivedTasks: [],
+  taskSettings: null
 };
 let editingId = null;
 let editingTaskId = null;
 let currentTab = 'sales';
 
-// Task constants
-const TASK_CATEGORIES = ['自社EC', 'ECコンサル', 'コーチング', 'その他'];
-const TASK_STATUSES = ['未着手', '着手中', '待機中', '一時完了', '完了'];
+// Task constants (defaults used when taskSettings is empty)
+const DEFAULT_TASK_CATEGORIES = [
+  { name: '自社EC',    color: '#0ea5e9' },
+  { name: 'ECコンサル', color: '#8b5cf6' },
+  { name: 'コーチング', color: '#ec4899' },
+  { name: 'その他',    color: '#64748b' }
+];
+const DEFAULT_TASK_STATUSES = [
+  { name: '未着手',  color: '#94a3b8', completed: false },
+  { name: '着手中',  color: '#3b82f6', completed: false },
+  { name: '待機中',  color: '#f59e0b', completed: false },
+  { name: '一時完了', color: '#8b5cf6', completed: false },
+  { name: '完了',    color: '#10b981', completed: true }
+];
+const CAT_PALETTE    = ['#0ea5e9','#8b5cf6','#ec4899','#64748b','#f59e0b','#10b981','#ef4444','#14b8a6','#f97316','#6366f1'];
+const STATUS_PALETTE = ['#94a3b8','#3b82f6','#f59e0b','#8b5cf6','#10b981','#0ea5e9','#ec4899','#ef4444','#14b8a6','#f97316'];
+const CLIENT_PALETTE = ['#6366f1','#14b8a6','#f97316','#84cc16','#06b6d4','#d946ef','#eab308','#0ea5e9','#8b5cf6','#ec4899'];
 const WEEKDAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
+
+// Task sort state (column-header sorting)
+let taskSortField = 'dueDate';
+let taskSortDir = 'asc';
 
 function ensureFY(fy) {
   if (!store.data[fy]) {
@@ -1502,6 +1738,68 @@ function ensureFY(fy) {
 function ensureTaskStore() {
   if (!Array.isArray(store.tasks)) store.tasks = [];
   if (!Array.isArray(store.archivedTasks)) store.archivedTasks = [];
+  if (!store.taskSettings || typeof store.taskSettings !== 'object') {
+    store.taskSettings = {};
+  }
+  const s = store.taskSettings;
+  // Categories (array of {name, color})
+  if (!Array.isArray(s.categories) || s.categories.length === 0) {
+    s.categories = DEFAULT_TASK_CATEGORIES.map(c => ({ ...c }));
+  } else {
+    s.categories = s.categories.map((c, i) => {
+      if (typeof c === 'string') return { name: c, color: CAT_PALETTE[i % CAT_PALETTE.length] };
+      return { name: c.name || '未設定', color: c.color || CAT_PALETTE[i % CAT_PALETTE.length] };
+    });
+  }
+  // Statuses (array of {name, color, completed})
+  if (!Array.isArray(s.statuses) || s.statuses.length === 0) {
+    s.statuses = DEFAULT_TASK_STATUSES.map(c => ({ ...c }));
+  } else {
+    s.statuses = s.statuses.map((c, i) => {
+      if (typeof c === 'string') return { name: c, color: STATUS_PALETTE[i % STATUS_PALETTE.length], completed: c === '完了' };
+      return {
+        name: c.name || '未設定',
+        color: c.color || STATUS_PALETTE[i % STATUS_PALETTE.length],
+        completed: !!c.completed
+      };
+    });
+  }
+  // Clients (array of {name, color})
+  if (!Array.isArray(s.clients)) s.clients = [];
+  s.clients = s.clients.map((c, i) => {
+    if (typeof c === 'string') return { name: c, color: CLIENT_PALETTE[i % CLIENT_PALETTE.length] };
+    return { name: c.name || '未設定', color: c.color || CLIENT_PALETTE[i % CLIENT_PALETTE.length] };
+  });
+
+  // Normalize existing tasks to ensure client field exists
+  store.tasks.forEach(t => {
+    if (typeof t.client === 'undefined') t.client = '';
+  });
+  store.archivedTasks.forEach(t => {
+    if (typeof t.client === 'undefined') t.client = '';
+  });
+}
+
+// ========== Task settings helpers ==========
+function getTaskCategories() { return (store.taskSettings && store.taskSettings.categories) || []; }
+function getTaskStatuses()   { return (store.taskSettings && store.taskSettings.statuses) || []; }
+function getTaskClients()    { return (store.taskSettings && store.taskSettings.clients) || []; }
+
+function getCategoryColor(name) {
+  const c = getTaskCategories().find(x => x.name === name);
+  return c ? c.color : '#9ca3af';
+}
+function getStatusColor(name) {
+  const s = getTaskStatuses().find(x => x.name === name);
+  return s ? s.color : '#9ca3af';
+}
+function getClientColor(name) {
+  const c = getTaskClients().find(x => x.name === name);
+  return c ? c.color : '#9ca3af';
+}
+function isCompletedStatus(name) {
+  const s = getTaskStatuses().find(x => x.name === name);
+  return s ? !!s.completed : false;
 }
 
 function currentData() {
@@ -2826,10 +3124,65 @@ function switchTab(tabName) {
     // Re-process recurring and archive each time we open the tab
     processRecurringTasks();
     archiveCompletedTasks();
+    populateTaskFormDropdowns();
+    populateTaskFilterDropdowns();
     renderTaskView();
   } else {
     render();
   }
+}
+
+// ========== Task dropdown populators ==========
+function populateSelect(el, values, currentVal, emptyLabel) {
+  if (!el) return;
+  const prev = currentVal != null ? currentVal : el.value;
+  el.innerHTML = '';
+  if (emptyLabel != null) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = emptyLabel;
+    el.appendChild(opt);
+  }
+  values.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = v;
+    el.appendChild(opt);
+  });
+  // Restore previous selection if still valid
+  if (prev && values.includes(prev)) {
+    el.value = prev;
+  } else if (emptyLabel != null) {
+    el.value = '';
+  }
+}
+
+function populateTaskFormDropdowns() {
+  const cats = getTaskCategories().map(c => c.name);
+  const statuses = getTaskStatuses().map(s => s.name);
+  const clients = getTaskClients().map(c => c.name);
+  populateSelect(document.getElementById('t_category'), cats);
+  populateSelect(document.getElementById('t_status'), statuses);
+  populateSelect(document.getElementById('t_client'), clients, null, '（クライアント未選択）');
+}
+
+function populateTaskFilterDropdowns() {
+  const cats = getTaskCategories().map(c => c.name);
+  const statuses = getTaskStatuses().map(s => s.name);
+  const clients = getTaskClients().map(c => c.name);
+  populateSelect(document.getElementById('taskFilterCategory'), cats, null, 'すべて');
+  populateSelect(document.getElementById('taskFilterStatus'),   statuses, null, 'すべて');
+  populateSelect(document.getElementById('taskFilterClient'),   clients, null, 'すべて');
+}
+
+function clearTaskFilters() {
+  ['taskFilterCategory','taskFilterStatus','taskFilterClient'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const k = document.getElementById('taskFilterKeyword');
+  if (k) k.value = '';
+  renderTaskTable();
 }
 
 // ========== Task Helpers ==========
@@ -2916,7 +3269,7 @@ function processRecurringTasks() {
   }
 }
 
-// Archive non-recurring tasks that have been 完了 for > 7 days
+// Archive non-recurring tasks that have been in a "completed" status for > 7 days
 function archiveCompletedTasks() {
   ensureTaskStore();
   const now = Date.now();
@@ -2928,7 +3281,7 @@ function archiveCompletedTasks() {
       keep.push(task);
       return;
     }
-    if (task.status === '完了' && task.completedAt) {
+    if (isCompletedStatus(task.status) && task.completedAt) {
       const t = new Date(task.completedAt).getTime();
       if (now - t > weekMs) {
         archived.push({ ...task, archivedAt: new Date().toISOString() });
@@ -2946,7 +3299,7 @@ function archiveCompletedTasks() {
 
 // Returns true if task is overdue OR due today and not completed
 function isTaskAlerting(task) {
-  if (task.status === '完了') return false;
+  if (isCompletedStatus(task.status)) return false;
   if (!task.dueDate) return false;
   const today = todayStr();
   return task.dueDate <= today;
@@ -2964,6 +3317,8 @@ function recurringLabel(recurring) {
 // ========== Task Rendering ==========
 function renderTaskView() {
   ensureTaskStore();
+  populateTaskFormDropdowns();
+  populateTaskFilterDropdowns();
   renderTaskKPIs();
   renderTaskTable();
   renderArchivedTasks();
@@ -2998,17 +3353,74 @@ function renderTaskKPIs() {
   }
 }
 
+// Column header sorting
+function sortTasksBy(field) {
+  if (taskSortField === field) {
+    taskSortDir = taskSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    taskSortField = field;
+    taskSortDir = 'asc';
+  }
+  renderTaskTable();
+}
+
+function compareTasksByField(a, b, field) {
+  const dir = taskSortDir === 'desc' ? -1 : 1;
+  let av, bv;
+  switch (field) {
+    case 'category':
+      av = a.category || ''; bv = b.category || '';
+      return av.localeCompare(bv, 'ja') * dir;
+    case 'client':
+      av = a.client || ''; bv = b.client || '';
+      return av.localeCompare(bv, 'ja') * dir;
+    case 'content':
+      av = a.content || ''; bv = b.content || '';
+      return av.localeCompare(bv, 'ja') * dir;
+    case 'dueDate':
+      av = a.dueDate || '9999-12-31'; bv = b.dueDate || '9999-12-31';
+      return av.localeCompare(bv) * dir;
+    case 'status': {
+      const names = getTaskStatuses().map(s => s.name);
+      const ai = names.indexOf(a.status); const bi = names.indexOf(b.status);
+      return ((ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi)) * dir;
+    }
+    case 'recurring':
+      av = recurringLabel(a.recurring); bv = recurringLabel(b.recurring);
+      return av.localeCompare(bv, 'ja') * dir;
+    default:
+      return 0;
+  }
+}
+
+function updateSortIndicators() {
+  ['category','client','content','dueDate','status','recurring'].forEach(f => {
+    const el = document.getElementById('sortInd_' + f);
+    if (!el) return;
+    if (f === taskSortField) {
+      el.textContent = taskSortDir === 'asc' ? '▲' : '▼';
+      el.classList.add('active');
+    } else {
+      el.textContent = '';
+      el.classList.remove('active');
+    }
+  });
+}
+
 function renderTaskTable() {
   const tbody = document.getElementById('tasksBody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  const filterCat = (document.getElementById('taskFilterCategory') || {}).value || '';
-  const filterStatus = (document.getElementById('taskFilterStatus') || {}).value || '';
+  updateSortIndicators();
+
+  const filterCat    = (document.getElementById('taskFilterCategory') || {}).value || '';
+  const filterClient = (document.getElementById('taskFilterClient')   || {}).value || '';
+  const filterStatus = (document.getElementById('taskFilterStatus')   || {}).value || '';
   const keyword = ((document.getElementById('taskFilterKeyword') || {}).value || '').toLowerCase().trim();
-  const sortOrder = (document.getElementById('taskSortOrder') || {}).value || 'due';
 
   let tasks = (store.tasks || []).slice();
-  if (filterCat) tasks = tasks.filter(t => t.category === filterCat);
+  if (filterCat)    tasks = tasks.filter(t => t.category === filterCat);
+  if (filterClient) tasks = tasks.filter(t => (t.client || '') === filterClient);
   if (filterStatus) tasks = tasks.filter(t => t.status === filterStatus);
   if (keyword) {
     tasks = tasks.filter(t =>
@@ -3016,57 +3428,61 @@ function renderTaskTable() {
       (t.comment || '').toLowerCase().includes(keyword));
   }
 
-  // Sort
-  if (sortOrder === 'due') {
-    tasks.sort((a, b) => {
-      const ad = a.dueDate || '9999-12-31';
-      const bd = b.dueDate || '9999-12-31';
-      if (ad !== bd) return ad.localeCompare(bd);
-      return (a.createdAt || '').localeCompare(b.createdAt || '');
-    });
-  } else if (sortOrder === 'created') {
-    tasks.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-  } else if (sortOrder === 'category') {
-    tasks.sort((a, b) => {
-      const ac = TASK_CATEGORIES.indexOf(a.category);
-      const bc = TASK_CATEGORIES.indexOf(b.category);
-      if (ac !== bc) return ac - bc;
-      return (a.dueDate || '').localeCompare(b.dueDate || '');
-    });
-  }
+  // Sort by column
+  tasks.sort((a, b) => {
+    const primary = compareTasksByField(a, b, taskSortField);
+    if (primary !== 0) return primary;
+    // Tie breaker: due date asc, then createdAt
+    const ad = a.dueDate || '9999-12-31';
+    const bd = b.dueDate || '9999-12-31';
+    if (ad !== bd) return ad.localeCompare(bd);
+    return (a.createdAt || '').localeCompare(b.createdAt || '');
+  });
 
   if (tasks.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">タスクがありません。上のフォームから追加してください。</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">タスクがありません。上のフォームから追加してください。</td></tr>';
     return;
   }
 
+  const statuses = getTaskStatuses();
   tasks.forEach(t => {
     const tr = document.createElement('tr');
+    tr.dataset.taskId = t.id;
     const alerting = isTaskAlerting(t);
     if (alerting) tr.classList.add('task-row-alert');
-    if (t.status === '完了') tr.classList.add('task-row-done');
+    if (isCompletedStatus(t.status)) tr.classList.add('task-row-done');
     const alertIcon = alerting ? '<span class="task-alert-icon" title="期日超過または当日未完了">!</span>' : '';
     const urlCell = t.url ? `<a class="task-url-link" href="${escapeAttr(t.url)}" target="_blank" rel="noopener">🔗 リンク</a>` : '';
-    const statusOptions = TASK_STATUSES.map(s =>
-      `<option value="${s}"${s === t.status ? ' selected' : ''}>${s}</option>`
+    const statusOptions = statuses.map(s =>
+      `<option value="${escapeAttr(s.name)}"${s.name === t.status ? ' selected' : ''}>${escapeHtml(s.name)}</option>`
     ).join('');
+    const catColor = getCategoryColor(t.category);
+    const clientColor = t.client ? getClientColor(t.client) : '';
+    const statusColor = getStatusColor(t.status);
+    const catBadge = t.category
+      ? `<span class="category-badge" style="background:${catColor}">${escapeHtml(t.category)}</span>`
+      : '';
+    const clientBadge = t.client
+      ? `<span class="category-badge" style="background:${clientColor}">${escapeHtml(t.client)}</span>`
+      : '<span style="color:var(--text-sub); font-size:11px;">—</span>';
     tr.innerHTML = `
       <td>${alertIcon}</td>
-      <td><span class="category-badge cat-${t.category}">${escapeHtml(t.category)}</span></td>
+      <td>${catBadge}</td>
+      <td>${clientBadge}</td>
       <td>${escapeHtml(t.content || '')}</td>
       <td>${escapeHtml(t.dueDate || '')}</td>
       <td>
-        <select class="status-inline-select" onchange="updateTaskStatus('${t.id}', this.value)">
+        <select class="status-inline-select" style="border-left:3px solid ${statusColor};" onchange="updateTaskStatus('${escapeAttr(t.id)}', this.value)">
           ${statusOptions}
         </select>
       </td>
-      <td style="font-size:11px; color:var(--text-sub);">${escapeHtml(recurringLabel(t.recurring))}</td>
+      <td style="font-size:11px; color:var(--text-sub); white-space:nowrap;">${escapeHtml(recurringLabel(t.recurring))}</td>
       <td>${urlCell}</td>
       <td style="max-width:240px; white-space:normal; font-size:12px;">${escapeHtml(t.comment || '')}</td>
       <td>
         <div class="row-actions">
-          <button class="icon-btn" onclick="editTask('${t.id}')">編集</button>
-          <button class="icon-btn delete" onclick="deleteTask('${t.id}')">削除</button>
+          <button type="button" class="icon-btn" onclick="editTask('${escapeAttr(t.id)}')">編集</button>
+          <button type="button" class="icon-btn delete" onclick="deleteTask('${escapeAttr(t.id)}')">削除</button>
         </div>
       </td>
     `;
@@ -3083,15 +3499,24 @@ function renderArchivedTasks() {
   if (countLabel) countLabel.textContent = `（${archived.length}件）`;
   tbody.innerHTML = '';
   if (archived.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">アーカイブされたタスクはありません</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">アーカイブされたタスクはありません</td></tr>';
     return;
   }
   archived.forEach(t => {
     const tr = document.createElement('tr');
     const urlCell = t.url ? `<a class="task-url-link" href="${escapeAttr(t.url)}" target="_blank" rel="noopener">🔗 リンク</a>` : '';
     const completedStr = t.completedAt ? new Date(t.completedAt).toLocaleDateString('ja-JP') : '';
+    const catColor = getCategoryColor(t.category);
+    const clientColor = t.client ? getClientColor(t.client) : '';
+    const catBadge = t.category
+      ? `<span class="category-badge" style="background:${catColor}">${escapeHtml(t.category)}</span>`
+      : '';
+    const clientBadge = t.client
+      ? `<span class="category-badge" style="background:${clientColor}">${escapeHtml(t.client)}</span>`
+      : '<span style="color:var(--text-sub); font-size:11px;">—</span>';
     tr.innerHTML = `
-      <td><span class="category-badge cat-${t.category}">${escapeHtml(t.category)}</span></td>
+      <td>${catBadge}</td>
+      <td>${clientBadge}</td>
       <td>${escapeHtml(t.content || '')}</td>
       <td>${escapeHtml(t.dueDate || '')}</td>
       <td>${completedStr}</td>
@@ -3099,8 +3524,8 @@ function renderArchivedTasks() {
       <td style="max-width:240px; white-space:normal; font-size:12px;">${escapeHtml(t.comment || '')}</td>
       <td>
         <div class="row-actions">
-          <button class="icon-btn" onclick="restoreArchivedTask('${t.id}')">復元</button>
-          <button class="icon-btn delete" onclick="deleteArchivedTask('${t.id}')">削除</button>
+          <button type="button" class="icon-btn" onclick="restoreArchivedTask('${escapeAttr(t.id)}')">復元</button>
+          <button type="button" class="icon-btn delete" onclick="deleteArchivedTask('${escapeAttr(t.id)}')">削除</button>
         </div>
       </td>
     `;
@@ -3138,6 +3563,7 @@ function updateRecurringOptionsUI() {
 }
 
 function saveTask() {
+  ensureTaskStore();
   const content = document.getElementById('t_content').value.trim();
   if (!content) { alert('タスク内容を入力してください'); return; }
 
@@ -3161,71 +3587,151 @@ function saveTask() {
   const status = document.getElementById('t_status').value;
   const now = new Date().toISOString();
 
+  // Snapshot editingTaskId so nothing mid-flight can clobber it
+  const targetId = editingTaskId;
+  const existingIdx = targetId ? store.tasks.findIndex(x => x.id === targetId) : -1;
+  const existing = existingIdx >= 0 ? store.tasks[existingIdx] : null;
+
+  const newId = existing ? existing.id : (String(Date.now()) + Math.random().toString(36).slice(2, 8));
   const task = {
-    id: editingTaskId || String(Date.now()) + Math.random().toString(36).slice(2, 8),
-    category: document.getElementById('t_category').value,
+    id: newId,
+    category: document.getElementById('t_category').value || '',
+    client: document.getElementById('t_client').value || '',
     content: content,
-    dueDate: dueDate,
-    status: status,
+    dueDate: dueDate || '',
+    status: status || '',
     url: document.getElementById('t_url').value.trim(),
     comment: document.getElementById('t_comment').value.trim(),
     recurring: recurring,
-    createdAt: editingTaskId ? (store.tasks.find(x => x.id === editingTaskId) || {}).createdAt || now : now,
-    completedAt: status === '完了' ? now : null
+    createdAt: existing && existing.createdAt ? existing.createdAt : now,
+    completedAt: null
   };
 
-  if (editingTaskId) {
-    // Preserve completedAt if already 完了 and unchanged
-    const existing = store.tasks.find(x => x.id === editingTaskId);
-    if (existing && existing.status === '完了' && status === '完了') {
+  // completedAt handling: mark now if transitioning into a "completed" status,
+  // keep the previous timestamp if already completed and still completed.
+  if (isCompletedStatus(status)) {
+    if (existing && isCompletedStatus(existing.status) && existing.completedAt) {
       task.completedAt = existing.completedAt;
+    } else {
+      task.completedAt = now;
     }
-    store.tasks = store.tasks.map(x => x.id === editingTaskId ? task : x);
+  }
+
+  if (existingIdx >= 0) {
+    store.tasks[existingIdx] = task;
+  } else if (targetId) {
+    // We were in edit mode but task was removed (e.g. archived). Push as new.
+    store.tasks.push(task);
   } else {
     store.tasks.push(task);
   }
+
   save();
   resetTaskForm();
   renderTaskView();
+  // Briefly highlight the saved row
+  flashTaskRow(newId);
+}
+
+function flashTaskRow(id) {
+  setTimeout(() => {
+    try {
+      const safe = (typeof CSS !== 'undefined' && CSS && CSS.escape) ? CSS.escape(id) : String(id).replace(/"/g, '\\"');
+      const row = document.querySelector('tr[data-task-id="' + safe + '"]');
+      if (row) {
+        row.classList.add('row-flash');
+        setTimeout(() => row.classList.remove('row-flash'), 2000);
+        try { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(e) {}
+      }
+    } catch(e) {}
+  }, 50);
 }
 
 function editTask(id) {
+  ensureTaskStore();
   const t = (store.tasks || []).find(x => x.id === id);
-  if (!t) return;
+  if (!t) { alert('タスクが見つかりませんでした'); return; }
   editingTaskId = id;
-  document.getElementById('t_category').value = t.category || '自社EC';
-  document.getElementById('t_content').value = t.content || '';
-  document.getElementById('t_dueDate').value = t.dueDate || '';
-  document.getElementById('t_status').value = t.status || '未着手';
-  document.getElementById('t_url').value = t.url || '';
-  document.getElementById('t_comment').value = t.comment || '';
+
+  // If the task's category/status/client isn't in settings anymore, re-add it
+  // as an orphan entry so the <select> can display it correctly.
+  const cats = getTaskCategories();
+  if (t.category && !cats.some(c => c.name === t.category)) {
+    cats.push({ name: t.category, color: '#9ca3af' });
+  }
+  const statuses = getTaskStatuses();
+  if (t.status && !statuses.some(s => s.name === t.status)) {
+    statuses.push({ name: t.status, color: '#9ca3af', completed: false });
+  }
+  const clients = getTaskClients();
+  if (t.client && !clients.some(c => c.name === t.client)) {
+    clients.push({ name: t.client, color: '#9ca3af' });
+  }
+
+  // Re-populate dropdowns so the select has all needed options
+  populateTaskFormDropdowns();
+
+  // Fill form
+  const setVal = (sel, v) => { const el = document.getElementById(sel); if (el) el.value = v != null ? v : ''; };
+  setVal('t_category', t.category || '');
+  setVal('t_client',   t.client   || '');
+  setVal('t_content',  t.content  || '');
+  setVal('t_dueDate',  t.dueDate  || '');
+  setVal('t_status',   t.status   || '');
+  setVal('t_url',      t.url      || '');
+  setVal('t_comment',  t.comment  || '');
+
   const type = t.recurring ? t.recurring.type : '';
-  document.getElementById('t_recurring_type').value = type || '';
+  setVal('t_recurring_type', type || '');
   updateRecurringOptionsUI();
   if (type === 'weekly') {
-    document.getElementById('t_recurring_weekday').value = t.recurring.day;
+    setVal('t_recurring_weekday', t.recurring.day);
   } else if (type === 'monthly') {
-    document.getElementById('t_recurring_monthday').value = t.recurring.day;
+    setVal('t_recurring_monthday', t.recurring.day);
   }
-  document.getElementById('taskSaveBtn').textContent = '更新する';
-  window.scrollTo({ top: document.getElementById('t_content').offsetTop - 100, behavior: 'smooth' });
+
+  // Visual: edit mode banner / button text / cancel button
+  const saveBtn = document.getElementById('taskSaveBtn');
+  if (saveBtn) saveBtn.textContent = '更新する';
+  const cancelBtn = document.getElementById('taskCancelBtn');
+  if (cancelBtn) cancelBtn.style.display = '';
+  const banner = document.getElementById('taskEditBanner');
+  if (banner) banner.style.display = '';
+  const target = document.getElementById('taskEditTargetLabel');
+  if (target) target.textContent = t.content || '(無題)';
+  const card = document.getElementById('taskFormCard');
+  if (card) card.classList.add('editing');
+  const title = document.getElementById('taskFormTitle');
+  if (title) title.textContent = 'タスクの編集';
+
+  try {
+    const el = document.getElementById('t_content');
+    if (el) {
+      window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 100, behavior: 'smooth' });
+      el.focus();
+    }
+  } catch(e) {}
 }
 
 function deleteTask(id) {
+  ensureTaskStore();
   const t = (store.tasks || []).find(x => x.id === id);
   if (!t) return;
   if (!confirm(`「${t.content}」を削除しますか？`)) return;
   store.tasks = store.tasks.filter(x => x.id !== id);
+  // If we were editing this task, cancel the edit
+  if (editingTaskId === id) resetTaskForm();
   save();
   renderTaskView();
 }
 
 function updateTaskStatus(id, newStatus) {
+  ensureTaskStore();
   const t = (store.tasks || []).find(x => x.id === id);
   if (!t) return;
   t.status = newStatus;
-  if (newStatus === '完了') {
-    t.completedAt = new Date().toISOString();
+  if (isCompletedStatus(newStatus)) {
+    if (!t.completedAt) t.completedAt = new Date().toISOString();
   } else {
     t.completedAt = null;
   }
@@ -3235,15 +3741,29 @@ function updateTaskStatus(id, newStatus) {
 
 function resetTaskForm() {
   editingTaskId = null;
-  document.getElementById('t_category').value = '自社EC';
-  document.getElementById('t_content').value = '';
-  document.getElementById('t_dueDate').value = '';
-  document.getElementById('t_status').value = '未着手';
-  document.getElementById('t_url').value = '';
-  document.getElementById('t_comment').value = '';
-  document.getElementById('t_recurring_type').value = '';
+  const cats = getTaskCategories().map(c => c.name);
+  const statuses = getTaskStatuses().map(s => s.name);
+  const setVal = (sel, v) => { const el = document.getElementById(sel); if (el) el.value = v; };
+  setVal('t_category', cats[0] || '');
+  setVal('t_client',   '');
+  setVal('t_content',  '');
+  setVal('t_dueDate',  '');
+  setVal('t_status',   statuses[0] || '');
+  setVal('t_url',      '');
+  setVal('t_comment',  '');
+  setVal('t_recurring_type', '');
   updateRecurringOptionsUI();
-  document.getElementById('taskSaveBtn').textContent = 'タスクを追加';
+
+  const saveBtn = document.getElementById('taskSaveBtn');
+  if (saveBtn) saveBtn.textContent = 'タスクを追加';
+  const cancelBtn = document.getElementById('taskCancelBtn');
+  if (cancelBtn) cancelBtn.style.display = 'none';
+  const banner = document.getElementById('taskEditBanner');
+  if (banner) banner.style.display = 'none';
+  const card = document.getElementById('taskFormCard');
+  if (card) card.classList.remove('editing');
+  const title = document.getElementById('taskFormTitle');
+  if (title) title.textContent = 'タスクの追加・編集';
 }
 
 // ========== Archived task actions ==========
@@ -3275,19 +3795,243 @@ function clearAllArchivedTasks() {
   renderTaskView();
 }
 
+// ========== Task Settings Modal ==========
+function openTaskSettingsModal() {
+  ensureTaskStore();
+  renderSettingsLists();
+  document.getElementById('taskSettingsModal').style.display = 'flex';
+}
+
+function closeTaskSettingsModal() {
+  document.getElementById('taskSettingsModal').style.display = 'none';
+  // Re-populate dropdowns and re-render in case settings changed
+  populateTaskFormDropdowns();
+  populateTaskFilterDropdowns();
+  renderTaskView();
+}
+
+function renderSettingsLists() {
+  renderCategoriesSettings();
+  renderStatusesSettings();
+  renderClientsSettings();
+}
+
+function renderCategoriesSettings() {
+  const list = document.getElementById('settingCategoriesList');
+  if (!list) return;
+  list.innerHTML = '';
+  const cats = getTaskCategories();
+  cats.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'settings-item';
+    row.innerHTML = `
+      <input type="color" value="${escapeAttr(c.color)}" onchange="updateCategoryColor(${i}, this.value)" />
+      <input type="text" value="${escapeAttr(c.name)}" onchange="updateCategoryName(${i}, this.value)" />
+      <button type="button" class="btn-remove" ${cats.length <= 1 ? 'disabled' : ''} onclick="removeCategory(${i})">削除</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function renderStatusesSettings() {
+  const list = document.getElementById('settingStatusesList');
+  if (!list) return;
+  list.innerHTML = '';
+  const statuses = getTaskStatuses();
+  statuses.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'settings-item';
+    row.innerHTML = `
+      <input type="color" value="${escapeAttr(s.color)}" onchange="updateStatusColor(${i}, this.value)" />
+      <input type="text" value="${escapeAttr(s.name)}" onchange="updateStatusName(${i}, this.value)" />
+      <label><input type="checkbox" ${s.completed ? 'checked' : ''} onchange="toggleStatusCompleted(${i}, this.checked)" /> 完了扱い</label>
+      <button type="button" class="btn-remove" ${statuses.length <= 1 ? 'disabled' : ''} onclick="removeStatus(${i})">削除</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function renderClientsSettings() {
+  const list = document.getElementById('settingClientsList');
+  if (!list) return;
+  list.innerHTML = '';
+  const clients = getTaskClients();
+  if (clients.length === 0) {
+    list.innerHTML = '<div style="color:var(--text-sub); font-size:12px; padding:8px;">まだクライアントが登録されていません。下の欄から追加してください。</div>';
+    return;
+  }
+  clients.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'settings-item';
+    row.innerHTML = `
+      <input type="color" value="${escapeAttr(c.color)}" onchange="updateClientColor(${i}, this.value)" />
+      <input type="text" value="${escapeAttr(c.name)}" onchange="updateClientName(${i}, this.value)" />
+      <button type="button" class="btn-remove" onclick="removeClient(${i})">削除</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+// Category CRUD
+function addCategory() {
+  const input = document.getElementById('newCategoryInput');
+  const colorInput = document.getElementById('newCategoryColor');
+  const name = (input.value || '').trim();
+  if (!name) { alert('カテゴリ名を入力してください'); return; }
+  const cats = getTaskCategories();
+  if (cats.some(c => c.name === name)) { alert('同じ名前のカテゴリが既にあります'); return; }
+  cats.push({ name, color: colorInput.value || CAT_PALETTE[cats.length % CAT_PALETTE.length] });
+  save();
+  input.value = '';
+  renderCategoriesSettings();
+}
+
+function updateCategoryName(i, value) {
+  const cats = getTaskCategories();
+  if (!cats[i]) return;
+  const newName = (value || '').trim();
+  if (!newName) { alert('カテゴリ名は空にできません'); renderCategoriesSettings(); return; }
+  if (cats.some((c, idx) => idx !== i && c.name === newName)) {
+    alert('同じ名前のカテゴリが既にあります');
+    renderCategoriesSettings();
+    return;
+  }
+  const oldName = cats[i].name;
+  cats[i].name = newName;
+  // Rename in existing tasks
+  store.tasks.forEach(t => { if (t.category === oldName) t.category = newName; });
+  store.archivedTasks.forEach(t => { if (t.category === oldName) t.category = newName; });
+  save();
+}
+
+function updateCategoryColor(i, value) {
+  const cats = getTaskCategories();
+  if (cats[i]) { cats[i].color = value; save(); }
+}
+
+function removeCategory(i) {
+  const cats = getTaskCategories();
+  if (cats.length <= 1) { alert('最後のカテゴリは削除できません'); return; }
+  if (!confirm(`「${cats[i].name}」を削除しますか？\n※ このカテゴリが設定されている既存タスクはそのまま残ります。`)) return;
+  cats.splice(i, 1);
+  save();
+  renderCategoriesSettings();
+}
+
+// Status CRUD
+function addStatus() {
+  const input = document.getElementById('newStatusInput');
+  const colorInput = document.getElementById('newStatusColor');
+  const completed = document.getElementById('newStatusCompleted').checked;
+  const name = (input.value || '').trim();
+  if (!name) { alert('ステータス名を入力してください'); return; }
+  const statuses = getTaskStatuses();
+  if (statuses.some(s => s.name === name)) { alert('同じ名前のステータスが既にあります'); return; }
+  statuses.push({
+    name,
+    color: colorInput.value || STATUS_PALETTE[statuses.length % STATUS_PALETTE.length],
+    completed
+  });
+  save();
+  input.value = '';
+  document.getElementById('newStatusCompleted').checked = false;
+  renderStatusesSettings();
+}
+
+function updateStatusName(i, value) {
+  const statuses = getTaskStatuses();
+  if (!statuses[i]) return;
+  const newName = (value || '').trim();
+  if (!newName) { alert('ステータス名は空にできません'); renderStatusesSettings(); return; }
+  if (statuses.some((s, idx) => idx !== i && s.name === newName)) {
+    alert('同じ名前のステータスが既にあります');
+    renderStatusesSettings();
+    return;
+  }
+  const oldName = statuses[i].name;
+  statuses[i].name = newName;
+  store.tasks.forEach(t => { if (t.status === oldName) t.status = newName; });
+  store.archivedTasks.forEach(t => { if (t.status === oldName) t.status = newName; });
+  save();
+}
+
+function updateStatusColor(i, value) {
+  const statuses = getTaskStatuses();
+  if (statuses[i]) { statuses[i].color = value; save(); }
+}
+
+function toggleStatusCompleted(i, checked) {
+  const statuses = getTaskStatuses();
+  if (statuses[i]) { statuses[i].completed = !!checked; save(); }
+}
+
+function removeStatus(i) {
+  const statuses = getTaskStatuses();
+  if (statuses.length <= 1) { alert('最後のステータスは削除できません'); return; }
+  if (!confirm(`「${statuses[i].name}」を削除しますか？\n※ このステータスが設定されている既存タスクはそのまま残ります。`)) return;
+  statuses.splice(i, 1);
+  save();
+  renderStatusesSettings();
+}
+
+// Client CRUD
+function addClient() {
+  const input = document.getElementById('newClientInput');
+  const colorInput = document.getElementById('newClientColor');
+  const name = (input.value || '').trim();
+  if (!name) { alert('クライアント名を入力してください'); return; }
+  const clients = getTaskClients();
+  if (clients.some(c => c.name === name)) { alert('同じ名前のクライアントが既にあります'); return; }
+  clients.push({ name, color: colorInput.value || CLIENT_PALETTE[clients.length % CLIENT_PALETTE.length] });
+  save();
+  input.value = '';
+  renderClientsSettings();
+}
+
+function updateClientName(i, value) {
+  const clients = getTaskClients();
+  if (!clients[i]) return;
+  const newName = (value || '').trim();
+  if (!newName) { alert('クライアント名は空にできません'); renderClientsSettings(); return; }
+  if (clients.some((c, idx) => idx !== i && c.name === newName)) {
+    alert('同じ名前のクライアントが既にあります');
+    renderClientsSettings();
+    return;
+  }
+  const oldName = clients[i].name;
+  clients[i].name = newName;
+  store.tasks.forEach(t => { if (t.client === oldName) t.client = newName; });
+  store.archivedTasks.forEach(t => { if (t.client === oldName) t.client = newName; });
+  save();
+}
+
+function updateClientColor(i, value) {
+  const clients = getTaskClients();
+  if (clients[i]) { clients[i].color = value; save(); }
+}
+
+function removeClient(i) {
+  const clients = getTaskClients();
+  if (!confirm(`「${clients[i].name}」を削除しますか？\n※ このクライアントが設定されている既存タスクはそのまま残ります。`)) return;
+  clients.splice(i, 1);
+  save();
+  renderClientsSettings();
+}
+
 // ========== Task CSV ==========
 function buildTasksCSV(taskList) {
-  const headers = ['カテゴリ','タスク内容','期日','ステータス','URL','コメント','繰り返し種別','繰り返し曜日/日','作成日時','完了日時'];
+  const headers = ['カテゴリ','クライアント','タスク内容','期日','ステータス','URL','コメント','繰り返し種別','繰り返し曜日/日','作成日時','完了日時'];
   const rows = (taskList || []).map(t => [
     t.category || '',
-    t.content || '',
-    t.dueDate || '',
-    t.status || '',
-    t.url || '',
-    t.comment || '',
+    t.client   || '',
+    t.content  || '',
+    t.dueDate  || '',
+    t.status   || '',
+    t.url      || '',
+    t.comment  || '',
     t.recurring ? t.recurring.type : '',
     t.recurring ? (t.recurring.day != null ? t.recurring.day : '') : '',
-    t.createdAt || '',
+    t.createdAt  || '',
     t.completedAt || ''
   ]);
   return toCSV([headers, ...rows]);
@@ -3302,8 +4046,8 @@ function exportArchivedTasksCSV() {
 }
 
 function downloadTasksTemplate() {
-  const headers = ['カテゴリ','タスク内容','期日','ステータス','URL','コメント','繰り返し種別','繰り返し曜日/日','作成日時','完了日時'];
-  const sample = ['自社EC','例）新商品の仕入れ発注','2026-04-20','未着手','https://example.com','週1で在庫確認','weekly','1','',''];
+  const headers = ['カテゴリ','クライアント','タスク内容','期日','ステータス','URL','コメント','繰り返し種別','繰り返し曜日/日','作成日時','完了日時'];
+  const sample = ['自社EC','','例）新商品の仕入れ発注','2026-04-20','未着手','https://example.com','週1で在庫確認','weekly','1','',''];
   downloadFile(toCSV([headers, sample]), `タスクテンプレート_${dateStr()}.csv`);
 }
 
@@ -3333,33 +4077,46 @@ function handleTaskUpload(e) {
 function importTasksCSV(text, replace) {
   const rows = parseCSV(text);
   if (rows.length < 2) { alert('データ行がありません'); return; }
+  ensureTaskStore();
+  // Detect CSV format: new (11 cols, has クライアント) or legacy (10 cols, no クライアント)
+  const header = rows[0].map(c => (c || '').trim());
+  const hasClient = header.includes('クライアント');
   const imported = [];
   for (let i = 1; i < rows.length; i++) {
     const parts = rows[i];
     if (parts.length < 2) continue;
-    const content = (parts[1] || '').trim();
+    let idx = 0;
+    const category = (parts[idx++] || '').trim();
+    const client   = hasClient ? (parts[idx++] || '').trim() : '';
+    const content  = (parts[idx++] || '').trim();
     if (!content) continue;
-    const rType = (parts[6] || '').trim();
+    const dueDate  = (parts[idx++] || '').trim();
+    const status   = (parts[idx++] || '').trim();
+    const url      = (parts[idx++] || '').trim();
+    const comment  = (parts[idx++] || '').trim();
+    const rType    = (parts[idx++] || '').trim();
+    const rDay     = parts[idx++];
+    const createdAt  = (parts[idx++] || new Date().toISOString()).trim();
+    const completedAt = (parts[idx++] || '').trim() || null;
     let recurring = null;
     if (rType === 'daily' || rType === 'weekly' || rType === 'monthly') {
       recurring = { type: rType };
       if (rType === 'weekly' || rType === 'monthly') {
-        recurring.day = Number(parts[7]) || (rType === 'weekly' ? 1 : 1);
+        recurring.day = Number(rDay) || 1;
       }
     }
-    const category = (parts[0] || 'その他').trim();
-    const status = (parts[3] || '未着手').trim();
     imported.push({
       id: String(Date.now()) + i + Math.random().toString(36).slice(2, 6),
-      category: TASK_CATEGORIES.includes(category) ? category : 'その他',
-      content: content,
-      dueDate: (parts[2] || '').trim(),
-      status: TASK_STATUSES.includes(status) ? status : '未着手',
-      url: (parts[4] || '').trim(),
-      comment: (parts[5] || '').trim(),
+      category: category,
+      client:   client,
+      content:  content,
+      dueDate:  dueDate,
+      status:   status,
+      url:      url,
+      comment:  comment,
       recurring: recurring,
-      createdAt: (parts[8] || new Date().toISOString()).trim(),
-      completedAt: (parts[9] || '').trim() || null
+      createdAt: createdAt,
+      completedAt: completedAt
     });
   }
   if (imported.length === 0) { alert('有効なデータがありませんでした'); return; }
@@ -3367,7 +4124,6 @@ function importTasksCSV(text, replace) {
     ? `${imported.length}件で既存タスクを全て置き換えます。よろしいですか？`
     : `${imported.length}件を既存タスクに追加します。よろしいですか？`;
   if (!confirm(msg)) return;
-  ensureTaskStore();
   store.tasks = replace ? imported : store.tasks.concat(imported);
   save();
   processRecurringTasks();
