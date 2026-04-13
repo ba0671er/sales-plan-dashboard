@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>売上計画ダッシュボード ver2</title>
+<title>売上計画＆タスク管理ダッシュボード ver3</title>
 <style>
   :root {
     --bg: #f5f7fa;
@@ -758,13 +758,165 @@
     z-index: 100;
     display: none;
   }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 24px;
+  }
+
+  .tab-btn {
+    background: none;
+    border: none;
+    padding: 14px 28px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-sub);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+    border-radius: 0;
+    font-family: inherit;
+  }
+
+  .tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+
+  .tab-btn:hover:not(.active) {
+    color: var(--text);
+    background: #f9fafb;
+  }
+
+  .tab-content {
+    display: none;
+  }
+
+  .tab-content.active {
+    display: block;
+  }
+
+  /* Task KPI cards */
+  .kpi-card.task-total { border-left-color: var(--primary); }
+  .kpi-card.task-todo { border-left-color: #94a3b8; }
+  .kpi-card.task-doing { border-left-color: var(--primary); }
+  .kpi-card.task-wait { border-left-color: var(--warning); }
+  .kpi-card.task-partial { border-left-color: var(--status-high); }
+  .kpi-card.task-done { border-left-color: var(--success); }
+  .kpi-card.task-alert { border-left-color: var(--danger); }
+
+  /* Task status badges */
+  .badge-未着手 { background: #94a3b8; }
+  .badge-着手中 { background: #3b82f6; }
+  .badge-待機中 { background: #f59e0b; }
+  .badge-一時完了 { background: #8b5cf6; }
+  .badge-完了 { background: #10b981; }
+
+  /* Task alert icon */
+  .task-alert-icon {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--danger);
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 18px;
+    margin-right: 4px;
+    animation: pulse-alert 2s infinite;
+  }
+
+  @keyframes pulse-alert {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.6); }
+    50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+  }
+
+  .task-row-alert {
+    background: #fef2f2 !important;
+  }
+
+  .task-row-done {
+    opacity: 0.6;
+  }
+
+  /* Recurring options */
+  .recurring-options {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .recurring-options select {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    background: white;
+  }
+
+  /* Task category badges */
+  .category-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+    white-space: nowrap;
+  }
+
+  .cat-自社EC { background: #0ea5e9; }
+  .cat-ECコンサル { background: #8b5cf6; }
+  .cat-コーチング { background: #ec4899; }
+  .cat-その他 { background: #64748b; }
+
+  /* Task URL link */
+  .task-url-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 12px;
+    word-break: break-all;
+  }
+  .task-url-link:hover { text-decoration: underline; }
+
+  /* Task status inline select */
+  .status-inline-select {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  /* Archive section */
+  .archive-toggle {
+    cursor: pointer;
+    user-select: none;
+  }
+  .archive-toggle:hover { color: var(--text); }
+
+  .archive-content {
+    display: none;
+  }
+  .archive-content.open {
+    display: block;
+  }
 </style>
 </head>
 <body>
 
 <header>
   <div>
-    <h1>売上計画ダッシュボード <span style="font-size:12px; opacity:0.7; font-weight:400;">ver2.1</span></h1>
+    <h1>売上計画＆タスク管理ダッシュボード <span style="font-size:12px; opacity:0.7; font-weight:400;">ver3.0</span></h1>
     <div class="subtitle" id="fyLabel">2026年4月 〜 2027年3月（年度）</div>
   </div>
   <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
@@ -785,6 +937,15 @@
 </header>
 
 <div class="container">
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-btn-sales" onclick="switchTab('sales')">📊 売上管理</button>
+    <button class="tab-btn" id="tab-btn-tasks" onclick="switchTab('tasks')">✓ タスク管理 <span id="tabTaskAlertBadge" style="display:none; background:var(--danger); color:white; border-radius:10px; padding:1px 7px; font-size:11px; margin-left:4px;">0</span></button>
+  </div>
+
+  <!-- Sales Tab -->
+  <div id="sales-tab" class="tab-content active">
 
   <!-- KPI Cards -->
   <div class="kpi-grid">
@@ -1029,6 +1190,252 @@
     </div>
   </div>
 
+  </div><!-- /sales-tab -->
+
+  <!-- Tasks Tab -->
+  <div id="tasks-tab" class="tab-content">
+
+    <!-- Task KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card task-total">
+        <div class="kpi-label">アクティブタスク</div>
+        <div class="kpi-value" id="taskTotalValue">0</div>
+        <div class="kpi-sub">件（アーカイブ除く）</div>
+      </div>
+      <div class="kpi-card task-alert">
+        <div class="kpi-label">⚠ 期日超過・当日</div>
+        <div class="kpi-value" id="taskAlertValue">0</div>
+        <div class="kpi-sub" id="taskAlertSub">完了していないタスク</div>
+      </div>
+      <div class="kpi-card task-todo">
+        <div class="kpi-label">未着手</div>
+        <div class="kpi-value" id="taskTodoValue">0</div>
+      </div>
+      <div class="kpi-card task-doing">
+        <div class="kpi-label">着手中</div>
+        <div class="kpi-value" id="taskDoingValue">0</div>
+      </div>
+      <div class="kpi-card task-wait">
+        <div class="kpi-label">待機中</div>
+        <div class="kpi-value" id="taskWaitValue">0</div>
+      </div>
+      <div class="kpi-card task-partial">
+        <div class="kpi-label">一時完了</div>
+        <div class="kpi-value" id="taskPartialValue">0</div>
+      </div>
+      <div class="kpi-card task-done">
+        <div class="kpi-label">完了</div>
+        <div class="kpi-value" id="taskDoneValue">0</div>
+        <div class="kpi-sub">1週間後アーカイブ</div>
+      </div>
+    </div>
+
+    <!-- Task Filters -->
+    <div class="section">
+      <div class="card">
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+          <div class="form-field" style="min-width:160px;">
+            <label>カテゴリで絞込</label>
+            <select id="taskFilterCategory" onchange="renderTaskTable()">
+              <option value="">すべて</option>
+              <option value="自社EC">自社EC</option>
+              <option value="ECコンサル">ECコンサル</option>
+              <option value="コーチング">コーチング</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+          <div class="form-field" style="min-width:160px;">
+            <label>ステータスで絞込</label>
+            <select id="taskFilterStatus" onchange="renderTaskTable()">
+              <option value="">すべて</option>
+              <option value="未着手">未着手</option>
+              <option value="着手中">着手中</option>
+              <option value="待機中">待機中</option>
+              <option value="一時完了">一時完了</option>
+              <option value="完了">完了</option>
+            </select>
+          </div>
+          <div class="form-field" style="min-width:200px;">
+            <label>キーワード検索</label>
+            <input type="text" id="taskFilterKeyword" placeholder="タスク内容・コメント" oninput="renderTaskTable()" />
+          </div>
+          <div class="form-field">
+            <label>表示順</label>
+            <select id="taskSortOrder" onchange="renderTaskTable()">
+              <option value="due">期日順</option>
+              <option value="created">追加順（新しい）</option>
+              <option value="category">カテゴリ順</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Task Form -->
+    <div class="section">
+      <h2 class="section-title">タスクの追加・編集</h2>
+      <div class="card">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>カテゴリ</label>
+            <select id="t_category">
+              <option value="自社EC">自社EC</option>
+              <option value="ECコンサル">ECコンサル</option>
+              <option value="コーチング">コーチング</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>期日</label>
+            <input type="date" id="t_dueDate" />
+          </div>
+          <div class="form-field">
+            <label>ステータス</label>
+            <select id="t_status">
+              <option value="未着手">未着手</option>
+              <option value="着手中">着手中</option>
+              <option value="待機中">待機中</option>
+              <option value="一時完了">一時完了</option>
+              <option value="完了">完了</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>URL</label>
+            <input type="url" id="t_url" placeholder="https://..." />
+          </div>
+          <div class="form-field full">
+            <label>タスク内容</label>
+            <input type="text" id="t_content" placeholder="タスク内容を入力" />
+          </div>
+          <div class="form-field full">
+            <label>コメント</label>
+            <textarea id="t_comment" rows="2" placeholder="詳細・メモ"></textarea>
+          </div>
+          <div class="form-field full">
+            <label>繰り返し業務</label>
+            <div class="recurring-options">
+              <select id="t_recurring_type" onchange="updateRecurringOptionsUI()">
+                <option value="">繰り返しなし</option>
+                <option value="daily">毎日</option>
+                <option value="weekly">毎週</option>
+                <option value="monthly">毎月</option>
+              </select>
+              <select id="t_recurring_weekday" style="display:none;">
+                <option value="0">日曜日</option>
+                <option value="1">月曜日</option>
+                <option value="2">火曜日</option>
+                <option value="3">水曜日</option>
+                <option value="4">木曜日</option>
+                <option value="5">金曜日</option>
+                <option value="6">土曜日</option>
+              </select>
+              <select id="t_recurring_monthday" style="display:none;"></select>
+              <span style="font-size:11px; color:var(--text-sub);">※ 指定日の24時にステータスがリセットされます（アーカイブされません）</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-secondary" onclick="resetTaskForm()">クリア</button>
+          <button class="btn-primary" id="taskSaveBtn" onclick="saveTask()">タスクを追加</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tasks Table -->
+    <div class="section">
+      <div class="toolbar">
+        <h2 class="section-title" style="margin:0;">タスク一覧</h2>
+        <div class="toolbar-right">
+          <div class="dropdown" id="taskDownloadDropdown">
+            <button class="btn-primary" onclick="toggleDropdown('taskDownloadDropdown')">⬇ ダウンロード ▾</button>
+            <div class="dropdown-menu">
+              <button class="dropdown-item" onclick="exportTasksCSV(); closeDropdowns();">
+                タスク一覧 CSV
+                <span class="sub">アクティブなタスク</span>
+              </button>
+              <button class="dropdown-item" onclick="exportArchivedTasksCSV(); closeDropdowns();">
+                アーカイブ一覧 CSV
+                <span class="sub">アーカイブ済みタスク</span>
+              </button>
+              <button class="dropdown-item divider" onclick="exportBackupJSON(); closeDropdowns();">
+                バックアップ（JSON）
+                <span class="sub">全データをまるごと保存</span>
+              </button>
+            </div>
+          </div>
+          <button class="btn-secondary" onclick="downloadTasksTemplate()">📄 テンプレート</button>
+          <div class="dropdown" id="taskUploadDropdown">
+            <button class="btn-secondary" onclick="toggleDropdown('taskUploadDropdown')">⬆ アップロード ▾</button>
+            <div class="dropdown-menu">
+              <button class="dropdown-item" onclick="triggerTaskUpload('tasks'); closeDropdowns();">
+                タスク CSV を読み込み
+                <span class="sub">既存タスクに追加</span>
+              </button>
+              <button class="dropdown-item" onclick="triggerTaskUpload('tasksReplace'); closeDropdowns();">
+                タスク CSV で置き換え
+                <span class="sub">既存タスクを全置換</span>
+              </button>
+            </div>
+          </div>
+          <input type="file" id="taskUploadFile" accept=".csv" style="display:none" onchange="handleTaskUpload(event)" />
+        </div>
+      </div>
+      <div class="card" style="padding:0;">
+        <div class="table-wrapper">
+          <table id="tasksTable">
+            <thead>
+              <tr>
+                <th style="width:28px;"></th>
+                <th>カテゴリ</th>
+                <th>タスク内容</th>
+                <th>期日</th>
+                <th>ステータス</th>
+                <th>繰り返し</th>
+                <th>URL</th>
+                <th>コメント</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tasksBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Archive Section -->
+    <div class="section">
+      <div class="toolbar">
+        <h2 class="section-title archive-toggle" onclick="toggleArchive()" style="margin:0;">
+          <span id="archiveToggleIcon">▶</span> アーカイブ <span id="archiveCountLabel" style="color:var(--text-sub); font-size:12px; font-weight:500;">（0件）</span>
+        </h2>
+      </div>
+      <div class="archive-content" id="archiveContent">
+        <div class="card" style="padding:0;">
+          <div class="table-wrapper">
+            <table id="archivedTasksTable">
+              <thead>
+                <tr>
+                  <th>カテゴリ</th>
+                  <th>タスク内容</th>
+                  <th>期日</th>
+                  <th>完了日</th>
+                  <th>URL</th>
+                  <th>コメント</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="archivedTasksBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div style="margin-top:8px; display:flex; gap:8px; justify-content:flex-end;">
+          <button class="btn-secondary" onclick="clearAllArchivedTasks()">アーカイブを全削除</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tasks-tab -->
+
 </div>
 
 <div class="tooltip" id="tooltip"></div>
@@ -1065,13 +1472,22 @@ const WEIGHTS = {
 };
 
 // ========== State ==========
-// store = { fiscalYears: [2025, 2026, ...], currentFY: 2026, data: { 2026: { deals: [], monthlyTargets: [] }, ... } }
+// store = { fiscalYears: [2025, 2026, ...], currentFY: 2026, data: { 2026: { deals: [], monthlyTargets: [] }, ... }, tasks: [], archivedTasks: [] }
 let store = {
   currentFY: 2026,
   fiscalYears: [2026],
-  data: {}
+  data: {},
+  tasks: [],
+  archivedTasks: []
 };
 let editingId = null;
+let editingTaskId = null;
+let currentTab = 'sales';
+
+// Task constants
+const TASK_CATEGORIES = ['自社EC', 'ECコンサル', 'コーチング', 'その他'];
+const TASK_STATUSES = ['未着手', '着手中', '待機中', '一時完了', '完了'];
+const WEEKDAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
 
 function ensureFY(fy) {
   if (!store.data[fy]) {
@@ -1081,6 +1497,11 @@ function ensureFY(fy) {
     store.fiscalYears.push(fy);
     store.fiscalYears.sort((a, b) => a - b);
   }
+}
+
+function ensureTaskStore() {
+  if (!Array.isArray(store.tasks)) store.tasks = [];
+  if (!Array.isArray(store.archivedTasks)) store.archivedTasks = [];
 }
 
 function currentData() {
@@ -1107,6 +1528,10 @@ function save() {
   localStorage.setItem('uriage_store_v2', json);
   _lastSavedJSON = json;
   _hasUnsaved = false;
+  if (typeof _autoSaveTimer !== 'undefined' && _autoSaveTimer) {
+    clearTimeout(_autoSaveTimer);
+    _autoSaveTimer = null;
+  }
   updateSaveStatus();
 }
 
@@ -1144,9 +1569,20 @@ window.addEventListener('beforeunload', (e) => {
 // 入力変更を検知して自動保存（デバウンス付き）
 let _autoSaveTimer = null;
 function scheduleAutoSave() {
+  // Only mark unsaved if the in-memory store actually differs from what we
+  // last persisted. This avoids noisy "未保存" flashes caused by filter
+  // inputs, inline selects that already call save() explicitly, etc.
+  try {
+    const cur = JSON.stringify(store);
+    if (cur === _lastSavedJSON) return;
+  } catch(e) {}
   markUnsaved();
   clearTimeout(_autoSaveTimer);
-  _autoSaveTimer = setTimeout(() => { save(); render(); }, 1500);
+  _autoSaveTimer = setTimeout(() => {
+    save();
+    if (currentTab === 'tasks') renderTaskView();
+    else render();
+  }, 1500);
 }
 
 // 全てのinput/select変更を監視して自動保存
@@ -1162,13 +1598,13 @@ function load() {
       if (!Array.isArray(store.fiscalYears) || store.fiscalYears.length === 0) {
         store.fiscalYears = [store.currentFY || 2026];
       }
-    } catch(e) { store = { currentFY: 2026, fiscalYears: [2026], data: {} }; }
+    } catch(e) { store = { currentFY: 2026, fiscalYears: [2026], data: {}, tasks: [], archivedTasks: [] }; }
   } else {
     // Migrate from v1
     const oldDeals = localStorage.getItem('uriage_deals');
     const oldTargets = localStorage.getItem('uriage_monthly_targets');
     const oldSingle = localStorage.getItem('uriage_target');
-    store = { currentFY: 2026, fiscalYears: [2026], data: { 2026: { deals: [], monthlyTargets: new Array(12).fill(0) } } };
+    store = { currentFY: 2026, fiscalYears: [2026], data: { 2026: { deals: [], monthlyTargets: new Array(12).fill(0) } }, tasks: [], archivedTasks: [] };
     if (oldDeals) {
       try { store.data[2026].deals = JSON.parse(oldDeals); } catch(e) {}
     }
@@ -1182,8 +1618,12 @@ function load() {
   ensureFY(store.currentFY);
   // Normalize all FYs
   store.fiscalYears.forEach(fy => ensureFY(fy));
+  ensureTaskStore();
   currentFY = store.currentFY;
   MONTHS = buildMonths(currentFY);
+  // Process recurring resets and archive on load
+  processRecurringTasks();
+  archiveCompletedTasks();
 }
 
 function annualTarget() {
@@ -2184,6 +2624,7 @@ function importBackupJSON(text) {
       store.fiscalYears = [store.currentFY || 2026];
     }
     ensureFY(store.currentFY);
+    ensureTaskStore();
     currentFY = store.currentFY;
     MONTHS = buildMonths(currentFY);
   } else if (Array.isArray(data.deals)) {
@@ -2197,7 +2638,10 @@ function importBackupJSON(text) {
     alert('バックアップの形式が正しくありません'); return;
   }
   save();
+  processRecurringTasks();
+  archiveCompletedTasks();
   render();
+  renderTaskView();
   alert('バックアップから復元しました');
 }
 
@@ -2369,12 +2813,582 @@ function updateDriveStatusUI() {
   }
 }
 
+// ========== Tab Switching ==========
+function switchTab(tabName) {
+  currentTab = tabName;
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  const content = document.getElementById(tabName + '-tab');
+  const btn = document.getElementById('tab-btn-' + tabName);
+  if (content) content.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (tabName === 'tasks') {
+    // Re-process recurring and archive each time we open the tab
+    processRecurringTasks();
+    archiveCompletedTasks();
+    renderTaskView();
+  } else {
+    render();
+  }
+}
+
+// ========== Task Helpers ==========
+function todayStr() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+function parseDateLocal(s) {
+  if (!s) return null;
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+function daysInMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+// Compute the "current target due date" for a recurring task based on today
+function computeRecurringDueDate(recurring) {
+  if (!recurring) return null;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  if (recurring.type === 'daily') {
+    return todayStr();
+  }
+
+  if (recurring.type === 'weekly') {
+    const targetDay = Number(recurring.day); // 0-6
+    const currentDay = now.getDay();
+    let diff = targetDay - currentDay;
+    if (diff < 0) diff += 7;
+    const result = new Date(now);
+    result.setDate(result.getDate() + diff);
+    const y = result.getFullYear();
+    const m = String(result.getMonth() + 1).padStart(2, '0');
+    const d = String(result.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  if (recurring.type === 'monthly') {
+    const targetDay = Number(recurring.day); // 1-31
+    let year = now.getFullYear();
+    let month = now.getMonth();
+    let day = targetDay;
+    if (now.getDate() > targetDay) {
+      month += 1;
+      if (month > 11) { month = 0; year += 1; }
+    }
+    const dim = daysInMonth(year, month);
+    if (day > dim) day = dim;
+    const y = year;
+    const m = String(month + 1).padStart(2, '0');
+    const d = String(day).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  return null;
+}
+
+// For recurring tasks: if the stored due date is before the computed current
+// due date, reset the status and bump the due date. This models "指定した日の
+// 24時にステータスがリセット" by checking on every load/tab switch.
+function processRecurringTasks() {
+  ensureTaskStore();
+  let changed = false;
+  store.tasks.forEach(task => {
+    if (!task.recurring || !task.recurring.type) return;
+    const next = computeRecurringDueDate(task.recurring);
+    if (!next) return;
+    if (!task.dueDate || task.dueDate < next) {
+      task.dueDate = next;
+      task.status = '未着手';
+      task.completedAt = null;
+      changed = true;
+    }
+  });
+  if (changed) {
+    save();
+  }
+}
+
+// Archive non-recurring tasks that have been 完了 for > 7 days
+function archiveCompletedTasks() {
+  ensureTaskStore();
+  const now = Date.now();
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const keep = [];
+  const archived = [];
+  store.tasks.forEach(task => {
+    if (task.recurring && task.recurring.type) {
+      keep.push(task);
+      return;
+    }
+    if (task.status === '完了' && task.completedAt) {
+      const t = new Date(task.completedAt).getTime();
+      if (now - t > weekMs) {
+        archived.push({ ...task, archivedAt: new Date().toISOString() });
+        return;
+      }
+    }
+    keep.push(task);
+  });
+  if (archived.length > 0) {
+    store.tasks = keep;
+    store.archivedTasks = (store.archivedTasks || []).concat(archived);
+    save();
+  }
+}
+
+// Returns true if task is overdue OR due today and not completed
+function isTaskAlerting(task) {
+  if (task.status === '完了') return false;
+  if (!task.dueDate) return false;
+  const today = todayStr();
+  return task.dueDate <= today;
+}
+
+// Returns description of recurring schedule for display
+function recurringLabel(recurring) {
+  if (!recurring || !recurring.type) return '';
+  if (recurring.type === 'daily') return '毎日';
+  if (recurring.type === 'weekly') return `毎週${WEEKDAY_NAMES[Number(recurring.day) || 0]}曜日`;
+  if (recurring.type === 'monthly') return `毎月${Number(recurring.day) || 1}日`;
+  return '';
+}
+
+// ========== Task Rendering ==========
+function renderTaskView() {
+  ensureTaskStore();
+  renderTaskKPIs();
+  renderTaskTable();
+  renderArchivedTasks();
+}
+
+function renderTaskKPIs() {
+  const tasks = store.tasks || [];
+  const counts = { '未着手': 0, '着手中': 0, '待機中': 0, '一時完了': 0, '完了': 0 };
+  let alertCount = 0;
+  tasks.forEach(t => {
+    if (counts[t.status] !== undefined) counts[t.status]++;
+    if (isTaskAlerting(t)) alertCount++;
+  });
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt('taskTotalValue', tasks.length);
+  setTxt('taskTodoValue', counts['未着手']);
+  setTxt('taskDoingValue', counts['着手中']);
+  setTxt('taskWaitValue', counts['待機中']);
+  setTxt('taskPartialValue', counts['一時完了']);
+  setTxt('taskDoneValue', counts['完了']);
+  setTxt('taskAlertValue', alertCount);
+
+  // Update tab badge
+  const badge = document.getElementById('tabTaskAlertBadge');
+  if (badge) {
+    if (alertCount > 0) {
+      badge.style.display = 'inline-block';
+      badge.textContent = alertCount;
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+function renderTaskTable() {
+  const tbody = document.getElementById('tasksBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const filterCat = (document.getElementById('taskFilterCategory') || {}).value || '';
+  const filterStatus = (document.getElementById('taskFilterStatus') || {}).value || '';
+  const keyword = ((document.getElementById('taskFilterKeyword') || {}).value || '').toLowerCase().trim();
+  const sortOrder = (document.getElementById('taskSortOrder') || {}).value || 'due';
+
+  let tasks = (store.tasks || []).slice();
+  if (filterCat) tasks = tasks.filter(t => t.category === filterCat);
+  if (filterStatus) tasks = tasks.filter(t => t.status === filterStatus);
+  if (keyword) {
+    tasks = tasks.filter(t =>
+      (t.content || '').toLowerCase().includes(keyword) ||
+      (t.comment || '').toLowerCase().includes(keyword));
+  }
+
+  // Sort
+  if (sortOrder === 'due') {
+    tasks.sort((a, b) => {
+      const ad = a.dueDate || '9999-12-31';
+      const bd = b.dueDate || '9999-12-31';
+      if (ad !== bd) return ad.localeCompare(bd);
+      return (a.createdAt || '').localeCompare(b.createdAt || '');
+    });
+  } else if (sortOrder === 'created') {
+    tasks.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  } else if (sortOrder === 'category') {
+    tasks.sort((a, b) => {
+      const ac = TASK_CATEGORIES.indexOf(a.category);
+      const bc = TASK_CATEGORIES.indexOf(b.category);
+      if (ac !== bc) return ac - bc;
+      return (a.dueDate || '').localeCompare(b.dueDate || '');
+    });
+  }
+
+  if (tasks.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">タスクがありません。上のフォームから追加してください。</td></tr>';
+    return;
+  }
+
+  tasks.forEach(t => {
+    const tr = document.createElement('tr');
+    const alerting = isTaskAlerting(t);
+    if (alerting) tr.classList.add('task-row-alert');
+    if (t.status === '完了') tr.classList.add('task-row-done');
+    const alertIcon = alerting ? '<span class="task-alert-icon" title="期日超過または当日未完了">!</span>' : '';
+    const urlCell = t.url ? `<a class="task-url-link" href="${escapeAttr(t.url)}" target="_blank" rel="noopener">🔗 リンク</a>` : '';
+    const statusOptions = TASK_STATUSES.map(s =>
+      `<option value="${s}"${s === t.status ? ' selected' : ''}>${s}</option>`
+    ).join('');
+    tr.innerHTML = `
+      <td>${alertIcon}</td>
+      <td><span class="category-badge cat-${t.category}">${escapeHtml(t.category)}</span></td>
+      <td>${escapeHtml(t.content || '')}</td>
+      <td>${escapeHtml(t.dueDate || '')}</td>
+      <td>
+        <select class="status-inline-select" onchange="updateTaskStatus('${t.id}', this.value)">
+          ${statusOptions}
+        </select>
+      </td>
+      <td style="font-size:11px; color:var(--text-sub);">${escapeHtml(recurringLabel(t.recurring))}</td>
+      <td>${urlCell}</td>
+      <td style="max-width:240px; white-space:normal; font-size:12px;">${escapeHtml(t.comment || '')}</td>
+      <td>
+        <div class="row-actions">
+          <button class="icon-btn" onclick="editTask('${t.id}')">編集</button>
+          <button class="icon-btn delete" onclick="deleteTask('${t.id}')">削除</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderArchivedTasks() {
+  const tbody = document.getElementById('archivedTasksBody');
+  const countLabel = document.getElementById('archiveCountLabel');
+  if (!tbody) return;
+  const archived = (store.archivedTasks || []).slice().sort((a, b) =>
+    (b.archivedAt || '').localeCompare(a.archivedAt || ''));
+  if (countLabel) countLabel.textContent = `（${archived.length}件）`;
+  tbody.innerHTML = '';
+  if (archived.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">アーカイブされたタスクはありません</td></tr>';
+    return;
+  }
+  archived.forEach(t => {
+    const tr = document.createElement('tr');
+    const urlCell = t.url ? `<a class="task-url-link" href="${escapeAttr(t.url)}" target="_blank" rel="noopener">🔗 リンク</a>` : '';
+    const completedStr = t.completedAt ? new Date(t.completedAt).toLocaleDateString('ja-JP') : '';
+    tr.innerHTML = `
+      <td><span class="category-badge cat-${t.category}">${escapeHtml(t.category)}</span></td>
+      <td>${escapeHtml(t.content || '')}</td>
+      <td>${escapeHtml(t.dueDate || '')}</td>
+      <td>${completedStr}</td>
+      <td>${urlCell}</td>
+      <td style="max-width:240px; white-space:normal; font-size:12px;">${escapeHtml(t.comment || '')}</td>
+      <td>
+        <div class="row-actions">
+          <button class="icon-btn" onclick="restoreArchivedTask('${t.id}')">復元</button>
+          <button class="icon-btn delete" onclick="deleteArchivedTask('${t.id}')">削除</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function toggleArchive() {
+  const content = document.getElementById('archiveContent');
+  const icon = document.getElementById('archiveToggleIcon');
+  if (!content) return;
+  content.classList.toggle('open');
+  if (icon) icon.textContent = content.classList.contains('open') ? '▼' : '▶';
+}
+
+function escapeAttr(s) {
+  if (!s) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ========== Task CRUD ==========
+function updateRecurringOptionsUI() {
+  const type = document.getElementById('t_recurring_type').value;
+  document.getElementById('t_recurring_weekday').style.display = type === 'weekly' ? '' : 'none';
+  const monthSel = document.getElementById('t_recurring_monthday');
+  monthSel.style.display = type === 'monthly' ? '' : 'none';
+  if (type === 'monthly' && monthSel.options.length === 0) {
+    for (let i = 1; i <= 31; i++) {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `${i}日`;
+      monthSel.appendChild(opt);
+    }
+  }
+}
+
+function saveTask() {
+  const content = document.getElementById('t_content').value.trim();
+  if (!content) { alert('タスク内容を入力してください'); return; }
+
+  const type = document.getElementById('t_recurring_type').value;
+  let recurring = null;
+  if (type === 'daily') {
+    recurring = { type: 'daily' };
+  } else if (type === 'weekly') {
+    recurring = { type: 'weekly', day: Number(document.getElementById('t_recurring_weekday').value) };
+  } else if (type === 'monthly') {
+    const monthSel = document.getElementById('t_recurring_monthday');
+    recurring = { type: 'monthly', day: Number(monthSel.value || 1) };
+  }
+
+  let dueDate = document.getElementById('t_dueDate').value;
+  if (recurring) {
+    // For recurring tasks, compute due date from recurring config
+    dueDate = computeRecurringDueDate(recurring) || dueDate;
+  }
+
+  const status = document.getElementById('t_status').value;
+  const now = new Date().toISOString();
+
+  const task = {
+    id: editingTaskId || String(Date.now()) + Math.random().toString(36).slice(2, 8),
+    category: document.getElementById('t_category').value,
+    content: content,
+    dueDate: dueDate,
+    status: status,
+    url: document.getElementById('t_url').value.trim(),
+    comment: document.getElementById('t_comment').value.trim(),
+    recurring: recurring,
+    createdAt: editingTaskId ? (store.tasks.find(x => x.id === editingTaskId) || {}).createdAt || now : now,
+    completedAt: status === '完了' ? now : null
+  };
+
+  if (editingTaskId) {
+    // Preserve completedAt if already 完了 and unchanged
+    const existing = store.tasks.find(x => x.id === editingTaskId);
+    if (existing && existing.status === '完了' && status === '完了') {
+      task.completedAt = existing.completedAt;
+    }
+    store.tasks = store.tasks.map(x => x.id === editingTaskId ? task : x);
+  } else {
+    store.tasks.push(task);
+  }
+  save();
+  resetTaskForm();
+  renderTaskView();
+}
+
+function editTask(id) {
+  const t = (store.tasks || []).find(x => x.id === id);
+  if (!t) return;
+  editingTaskId = id;
+  document.getElementById('t_category').value = t.category || '自社EC';
+  document.getElementById('t_content').value = t.content || '';
+  document.getElementById('t_dueDate').value = t.dueDate || '';
+  document.getElementById('t_status').value = t.status || '未着手';
+  document.getElementById('t_url').value = t.url || '';
+  document.getElementById('t_comment').value = t.comment || '';
+  const type = t.recurring ? t.recurring.type : '';
+  document.getElementById('t_recurring_type').value = type || '';
+  updateRecurringOptionsUI();
+  if (type === 'weekly') {
+    document.getElementById('t_recurring_weekday').value = t.recurring.day;
+  } else if (type === 'monthly') {
+    document.getElementById('t_recurring_monthday').value = t.recurring.day;
+  }
+  document.getElementById('taskSaveBtn').textContent = '更新する';
+  window.scrollTo({ top: document.getElementById('t_content').offsetTop - 100, behavior: 'smooth' });
+}
+
+function deleteTask(id) {
+  const t = (store.tasks || []).find(x => x.id === id);
+  if (!t) return;
+  if (!confirm(`「${t.content}」を削除しますか？`)) return;
+  store.tasks = store.tasks.filter(x => x.id !== id);
+  save();
+  renderTaskView();
+}
+
+function updateTaskStatus(id, newStatus) {
+  const t = (store.tasks || []).find(x => x.id === id);
+  if (!t) return;
+  t.status = newStatus;
+  if (newStatus === '完了') {
+    t.completedAt = new Date().toISOString();
+  } else {
+    t.completedAt = null;
+  }
+  save();
+  renderTaskView();
+}
+
+function resetTaskForm() {
+  editingTaskId = null;
+  document.getElementById('t_category').value = '自社EC';
+  document.getElementById('t_content').value = '';
+  document.getElementById('t_dueDate').value = '';
+  document.getElementById('t_status').value = '未着手';
+  document.getElementById('t_url').value = '';
+  document.getElementById('t_comment').value = '';
+  document.getElementById('t_recurring_type').value = '';
+  updateRecurringOptionsUI();
+  document.getElementById('taskSaveBtn').textContent = 'タスクを追加';
+}
+
+// ========== Archived task actions ==========
+function restoreArchivedTask(id) {
+  const idx = (store.archivedTasks || []).findIndex(x => x.id === id);
+  if (idx < 0) return;
+  const t = store.archivedTasks[idx];
+  delete t.archivedAt;
+  t.status = '未着手';
+  t.completedAt = null;
+  store.tasks.push(t);
+  store.archivedTasks.splice(idx, 1);
+  save();
+  renderTaskView();
+}
+
+function deleteArchivedTask(id) {
+  if (!confirm('このアーカイブタスクを完全に削除しますか？')) return;
+  store.archivedTasks = (store.archivedTasks || []).filter(x => x.id !== id);
+  save();
+  renderTaskView();
+}
+
+function clearAllArchivedTasks() {
+  if (!(store.archivedTasks || []).length) { alert('アーカイブは空です'); return; }
+  if (!confirm(`アーカイブされた${store.archivedTasks.length}件のタスクを全て削除します。よろしいですか？`)) return;
+  store.archivedTasks = [];
+  save();
+  renderTaskView();
+}
+
+// ========== Task CSV ==========
+function buildTasksCSV(taskList) {
+  const headers = ['カテゴリ','タスク内容','期日','ステータス','URL','コメント','繰り返し種別','繰り返し曜日/日','作成日時','完了日時'];
+  const rows = (taskList || []).map(t => [
+    t.category || '',
+    t.content || '',
+    t.dueDate || '',
+    t.status || '',
+    t.url || '',
+    t.comment || '',
+    t.recurring ? t.recurring.type : '',
+    t.recurring ? (t.recurring.day != null ? t.recurring.day : '') : '',
+    t.createdAt || '',
+    t.completedAt || ''
+  ]);
+  return toCSV([headers, ...rows]);
+}
+
+function exportTasksCSV() {
+  downloadFile(buildTasksCSV(store.tasks || []), `タスク一覧_${dateStr()}.csv`);
+}
+
+function exportArchivedTasksCSV() {
+  downloadFile(buildTasksCSV(store.archivedTasks || []), `タスクアーカイブ_${dateStr()}.csv`);
+}
+
+function downloadTasksTemplate() {
+  const headers = ['カテゴリ','タスク内容','期日','ステータス','URL','コメント','繰り返し種別','繰り返し曜日/日','作成日時','完了日時'];
+  const sample = ['自社EC','例）新商品の仕入れ発注','2026-04-20','未着手','https://example.com','週1で在庫確認','weekly','1','',''];
+  downloadFile(toCSV([headers, sample]), `タスクテンプレート_${dateStr()}.csv`);
+}
+
+function triggerTaskUpload(mode) {
+  _taskUploadMode = mode;
+  document.getElementById('taskUploadFile').click();
+}
+
+let _taskUploadMode = null;
+
+function handleTaskUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const text = ev.target.result.replace(/^\uFEFF/, '');
+    try {
+      importTasksCSV(text, _taskUploadMode === 'tasksReplace');
+    } catch (err) {
+      alert('読み込みに失敗しました: ' + err.message);
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+function importTasksCSV(text, replace) {
+  const rows = parseCSV(text);
+  if (rows.length < 2) { alert('データ行がありません'); return; }
+  const imported = [];
+  for (let i = 1; i < rows.length; i++) {
+    const parts = rows[i];
+    if (parts.length < 2) continue;
+    const content = (parts[1] || '').trim();
+    if (!content) continue;
+    const rType = (parts[6] || '').trim();
+    let recurring = null;
+    if (rType === 'daily' || rType === 'weekly' || rType === 'monthly') {
+      recurring = { type: rType };
+      if (rType === 'weekly' || rType === 'monthly') {
+        recurring.day = Number(parts[7]) || (rType === 'weekly' ? 1 : 1);
+      }
+    }
+    const category = (parts[0] || 'その他').trim();
+    const status = (parts[3] || '未着手').trim();
+    imported.push({
+      id: String(Date.now()) + i + Math.random().toString(36).slice(2, 6),
+      category: TASK_CATEGORIES.includes(category) ? category : 'その他',
+      content: content,
+      dueDate: (parts[2] || '').trim(),
+      status: TASK_STATUSES.includes(status) ? status : '未着手',
+      url: (parts[4] || '').trim(),
+      comment: (parts[5] || '').trim(),
+      recurring: recurring,
+      createdAt: (parts[8] || new Date().toISOString()).trim(),
+      completedAt: (parts[9] || '').trim() || null
+    });
+  }
+  if (imported.length === 0) { alert('有効なデータがありませんでした'); return; }
+  const msg = replace
+    ? `${imported.length}件で既存タスクを全て置き換えます。よろしいですか？`
+    : `${imported.length}件を既存タスクに追加します。よろしいですか？`;
+  if (!confirm(msg)) return;
+  ensureTaskStore();
+  store.tasks = replace ? imported : store.tasks.concat(imported);
+  save();
+  processRecurringTasks();
+  renderTaskView();
+  alert(`${imported.length}件のタスクを読み込みました`);
+}
+
 // ========== Init ==========
 load();
 render();
+renderTaskView();
 updateDriveStatusUI();
 // ページ読み込み後に自動バックアップチェック（3秒後）
 setTimeout(checkAutoBackup, 3000);
+// 毎分、繰り返し＆アラート状態を更新
+setInterval(() => {
+  processRecurringTasks();
+  archiveCompletedTasks();
+  if (currentTab === 'tasks') renderTaskView();
+  else renderTaskKPIs();
+}, 60 * 1000);
 </script>
 
 </body>
