@@ -1138,6 +1138,106 @@
 
   /* Keep form action buttons inline even when cancel is shown */
   .form-actions button { flex-shrink: 0; }
+
+  /* Client Summary */
+  .client-summary-row {
+    border-bottom: 1px solid var(--border);
+  }
+  .client-summary-row:last-child { border-bottom: none; }
+
+  .client-summary-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 10px;
+    cursor: pointer;
+    flex-wrap: wrap;
+  }
+  .client-summary-head:hover { background: #f9fafb; }
+
+  .client-expand-icon {
+    width: 14px;
+    text-align: center;
+    color: var(--text-sub);
+    transition: transform 0.15s;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+  .client-summary-row.expanded .client-expand-icon {
+    transform: rotate(90deg);
+  }
+
+  .client-summary-meta {
+    color: var(--text-sub);
+    font-size: 11px;
+    margin-left: 4px;
+  }
+
+  .client-summary-counts {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    flex: 1;
+    justify-content: flex-end;
+  }
+
+  .status-count-badge {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .client-summary-tasks {
+    display: none;
+    padding: 8px 10px 16px 34px;
+    background: #fafbfc;
+  }
+  .client-summary-row.expanded .client-summary-tasks {
+    display: block;
+  }
+
+  .client-task-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 5px 0;
+    font-size: 12px;
+    border-bottom: 1px dashed #e5e7eb;
+  }
+  .client-task-row:last-child { border-bottom: none; }
+
+  .client-task-date {
+    color: var(--text-sub);
+    min-width: 80px;
+    font-variant-numeric: tabular-nums;
+  }
+  .client-task-date.overdue { color: var(--danger); font-weight: 600; }
+
+  .client-task-content { flex: 1; }
+
+  .client-task-alert-icon {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--danger);
+    color: white;
+    font-size: 9px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 14px;
+    flex-shrink: 0;
+  }
+
+  .client-task-assignee {
+    font-size: 10px;
+    color: var(--text-sub);
+    padding: 1px 6px;
+    background: #f3f4f6;
+    border-radius: 8px;
+  }
 </style>
 </head>
 <body>
@@ -1455,6 +1555,20 @@
         <div class="kpi-label">完了</div>
         <div class="kpi-value" id="taskDoneValue">0</div>
         <div class="kpi-sub">1週間後アーカイブ</div>
+      </div>
+    </div>
+
+    <!-- Client Summary -->
+    <div class="section">
+      <div class="toolbar">
+        <h2 class="section-title archive-toggle" onclick="toggleClientSummary()" style="margin:0;">
+          <span id="clientSummaryToggleIcon">▼</span> クライアント別サマリ <span id="clientSummaryCount" style="color:var(--text-sub); font-size:12px; font-weight:500;">（0件）</span>
+        </h2>
+      </div>
+      <div id="clientSummaryContent">
+        <div class="card" style="padding:0;">
+          <div id="clientSummaryList"></div>
+        </div>
       </div>
     </div>
 
@@ -1816,6 +1930,11 @@ let taskSortDir = 'asc';
 function ensureFY(fy) {
   if (!store.data[fy]) {
     store.data[fy] = { deals: [], monthlyTargets: new Array(12).fill(0) };
+  }
+  // Ensure all required sub-fields exist even if legacy data is partial
+  if (!Array.isArray(store.data[fy].deals)) store.data[fy].deals = [];
+  if (!Array.isArray(store.data[fy].monthlyTargets) || store.data[fy].monthlyTargets.length !== 12) {
+    store.data[fy].monthlyTargets = new Array(12).fill(0);
   }
   if (!store.fiscalYears.includes(fy)) {
     store.fiscalYears.push(fy);
@@ -2563,17 +2682,24 @@ function renderTargetsEditor() {
   const editor = document.getElementById('monthlyTargetsEditor');
   if (!editor) return;
   editor.innerHTML = '';
-  MONTHS.forEach((m, i) => {
-    const div = document.createElement('div');
-    div.className = 'month-target';
-    const val = monthlyTargets[i] || '';
-    div.innerHTML = `
-      <label>${m.getFullYear()}/${m.getMonth()+1}</label>
-      <input type="number" value="${val}" placeholder="0"
-             oninput="updateMonthTarget(${i}, this.value)" />
-    `;
-    editor.appendChild(div);
-  });
+  try {
+    ensureFY(currentFY);
+    const targets = (currentData() && currentData().monthlyTargets) || new Array(12).fill(0);
+    MONTHS.forEach((m, i) => {
+      const div = document.createElement('div');
+      div.className = 'month-target';
+      const val = targets[i] || '';
+      div.innerHTML = `
+        <label>${m.getFullYear()}/${m.getMonth()+1}</label>
+        <input type="number" value="${val}" placeholder="0"
+               oninput="updateMonthTarget(${i}, this.value)" />
+      `;
+      editor.appendChild(div);
+    });
+  } catch (e) {
+    console.error('renderTargetsEditor failed:', e);
+    editor.innerHTML = '<div style="color:var(--danger); padding:10px; font-size:12px;">月別目標の表示に失敗しました: ' + (e && e.message) + '</div>';
+  }
 }
 
 function updateMonthTarget(i, val) {
@@ -3559,8 +3685,148 @@ function renderTaskView() {
   populateTaskFormDropdowns();
   populateTaskFilterDropdowns();
   renderTaskKPIs();
+  renderClientSummary();
   renderTaskTable();
   renderArchivedTasks();
+}
+
+// ===== Client Summary =====
+function renderClientSummary() {
+  const container = document.getElementById('clientSummaryList');
+  const countLabel = document.getElementById('clientSummaryCount');
+  if (!container) return;
+  container.innerHTML = '';
+
+  // Collect all client names: registered + orphans used by existing tasks
+  const registered = getTaskClients().map(c => c.name);
+  const orphanSet = new Set();
+  (store.tasks || []).forEach(t => {
+    if (t.client && !registered.includes(t.client)) orphanSet.add(t.client);
+  });
+  const allClientNames = [...registered, ...Array.from(orphanSet)];
+
+  // Group tasks by client
+  const byClient = {};
+  allClientNames.forEach(c => { byClient[c] = []; });
+  const unassigned = [];
+  (store.tasks || []).forEach(t => {
+    if (t.client && byClient[t.client]) {
+      byClient[t.client].push(t);
+    } else if (t.client) {
+      byClient[t.client] = [t];
+    } else {
+      unassigned.push(t);
+    }
+  });
+
+  if (countLabel) {
+    countLabel.textContent = `（${allClientNames.length}クライアント${unassigned.length > 0 ? ' + 未設定' : ''}）`;
+  }
+
+  if (allClientNames.length === 0 && unassigned.length === 0) {
+    container.innerHTML = '<div class="empty-state">クライアントが登録されていません。設定モーダルから追加するか、タスクフォームから直接追加できます。</div>';
+    return;
+  }
+
+  allClientNames.forEach(cName => {
+    container.appendChild(buildClientSummaryRow(cName, byClient[cName] || [], false));
+  });
+  if (unassigned.length > 0) {
+    container.appendChild(buildClientSummaryRow('(クライアント未設定)', unassigned, true));
+  }
+}
+
+function buildClientSummaryRow(clientName, tasks, isUnassigned) {
+  const row = document.createElement('div');
+  row.className = 'client-summary-row';
+
+  // Status counts (all statuses including completed)
+  const statuses = getTaskStatuses();
+  const counts = {};
+  statuses.forEach(s => { counts[s.name] = 0; });
+  tasks.forEach(t => {
+    if (counts[t.status] != null) counts[t.status]++;
+  });
+
+  // Incomplete tasks sorted by due date ascending (closest first)
+  const incomplete = tasks.filter(t => !isCompletedStatus(t.status));
+  incomplete.sort((a, b) => {
+    const ad = a.dueDate || '9999-12-31';
+    const bd = b.dueDate || '9999-12-31';
+    if (ad !== bd) return ad.localeCompare(bd);
+    return (a.createdAt || '').localeCompare(b.createdAt || '');
+  });
+
+  const countsHtml = statuses.map(s => {
+    if (counts[s.name] === 0) return '';
+    return `<span class="status-count-badge" style="background:${s.color};color:${textColorForBg(s.color)}">${escapeHtml(s.name)} ${counts[s.name]}</span>`;
+  }).filter(Boolean).join('') || '<span style="color:var(--text-sub); font-size:11px;">タスクなし</span>';
+
+  const badgeColor = isUnassigned ? '#e5e7eb' : getClientColor(clientName);
+  const badgeText  = textColorForBg(badgeColor);
+  const filterAction = isUnassigned ? '' :
+    `<button type="button" class="btn-secondary" style="padding:4px 10px; font-size:11px;" onclick="event.stopPropagation(); filterByClient('${escapeAttr(clientName)}')">絞込</button>`;
+
+  const tasksHtml = incomplete.length > 0
+    ? incomplete.map(t => buildClientTaskItem(t)).join('')
+    : '<div style="color:var(--text-sub); font-size:12px; padding:6px 0;">未完了タスクはありません</div>';
+
+  row.innerHTML = `
+    <div class="client-summary-head" onclick="toggleClientSummaryExpand(this)">
+      <span class="client-expand-icon">▶</span>
+      <span class="category-badge" style="background:${badgeColor};color:${badgeText}">${escapeHtml(clientName)}</span>
+      <span class="client-summary-meta">未完了 ${incomplete.length} / 全${tasks.length}件</span>
+      <div class="client-summary-counts">${countsHtml}</div>
+      ${filterAction}
+    </div>
+    <div class="client-summary-tasks">${tasksHtml}</div>
+  `;
+  return row;
+}
+
+function buildClientTaskItem(t) {
+  const isAlert = isTaskAlerting(t);
+  const dueStr = t.dueDate || '(期日なし)';
+  const statusColor = getStatusColor(t.status);
+  const alertIcon = isAlert
+    ? '<span class="client-task-alert-icon" title="期日超過または当日">!</span>'
+    : '<span style="width:14px; flex-shrink:0;"></span>';
+  const assignee = t.assignee
+    ? `<span class="client-task-assignee">@${escapeHtml(t.assignee)}</span>`
+    : '';
+  return `
+    <div class="client-task-row">
+      ${alertIcon}
+      <span class="client-task-date${isAlert ? ' overdue' : ''}">${escapeHtml(dueStr)}</span>
+      <span class="status-count-badge" style="background:${statusColor};color:${textColorForBg(statusColor)}">${escapeHtml(t.status)}</span>
+      <span class="client-task-content">${escapeHtml(t.content || '')}</span>
+      ${assignee}
+    </div>
+  `;
+}
+
+function toggleClientSummaryExpand(head) {
+  const row = head.closest('.client-summary-row');
+  if (row) row.classList.toggle('expanded');
+}
+
+function toggleClientSummary() {
+  const content = document.getElementById('clientSummaryContent');
+  const icon = document.getElementById('clientSummaryToggleIcon');
+  if (!content) return;
+  const hidden = content.style.display === 'none';
+  content.style.display = hidden ? '' : 'none';
+  if (icon) icon.textContent = hidden ? '▼' : '▶';
+}
+
+function filterByClient(clientName) {
+  const sel = document.getElementById('taskFilterClient');
+  if (sel) sel.value = clientName;
+  renderTaskTable();
+  const el = document.getElementById('tasksTable');
+  if (el && el.scrollIntoView) {
+    try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_) {}
+  }
 }
 
 function renderTaskKPIs() {
