@@ -1028,6 +1028,14 @@
     background: #f9fafb;
     border: 1px solid var(--border);
     border-radius: 6px;
+    transition: opacity 0.15s, border-color 0.15s, transform 0.15s;
+  }
+  .settings-item.dragging {
+    opacity: 0.4;
+  }
+  .settings-item.drag-over {
+    border-top: 3px solid var(--primary);
+    padding-top: 4px;
   }
   .settings-item input[type="text"] {
     flex: 1;
@@ -1037,14 +1045,51 @@
     font-size: 13px;
     font-family: inherit;
   }
+  /* Color picker styled as a small circular swatch (compact, unobtrusive) */
   .settings-item input[type="color"] {
-    width: 34px;
-    height: 28px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
+    width: 22px;
+    height: 22px;
+    border: 2px solid rgba(0,0,0,0.08);
+    border-radius: 50%;
     cursor: pointer;
     padding: 0;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: transparent;
+    flex-shrink: 0;
   }
+  .settings-item input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+  }
+  .settings-item input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 50%;
+  }
+  .settings-item input[type="color"]::-moz-color-swatch {
+    border: none;
+    border-radius: 50%;
+  }
+  .settings-item input[type="color"]:hover {
+    border-color: rgba(0,0,0,0.25);
+    transform: scale(1.1);
+  }
+
+  /* Drag handle */
+  .drag-handle {
+    cursor: grab;
+    color: #9ca3af;
+    padding: 4px 4px;
+    user-select: none;
+    font-size: 14px;
+    line-height: 1;
+    letter-spacing: -2px;
+    flex-shrink: 0;
+  }
+  .drag-handle:hover { color: #4b5563; }
+  .drag-handle:active { cursor: grabbing; }
   .settings-item label {
     font-size: 12px;
     color: var(--text-sub);
@@ -1625,23 +1670,21 @@
     <div class="modal-body">
 
       <div class="settings-section">
-        <h4>カテゴリ</h4>
-        <p class="settings-hint">タスクのカテゴリを追加・編集・削除できます。既存タスクが使っているカテゴリは削除するとタスク側で孤立した扱いになります。</p>
+        <h4>カテゴリ <span style="font-size:11px; color:var(--text-sub); font-weight:400;">（ドラッグで並び替え可）</span></h4>
+        <p class="settings-hint">タスクのカテゴリを追加・編集・削除できます。既存タスクが使っているカテゴリは削除するとタスク側で孤立した扱いになります。色は自動で割り当てられますが、左の丸をクリックで変更可能です。</p>
         <div id="settingCategoriesList" class="settings-list"></div>
         <div class="settings-add">
           <input type="text" id="newCategoryInput" placeholder="新しいカテゴリ名" />
-          <input type="color" id="newCategoryColor" value="#0ea5e9" />
           <button type="button" class="btn-primary" onclick="addCategory()">追加</button>
         </div>
       </div>
 
       <div class="settings-section">
-        <h4>ステータス</h4>
+        <h4>ステータス <span style="font-size:11px; color:var(--text-sub); font-weight:400;">（ドラッグで並び替え可）</span></h4>
         <p class="settings-hint">「完了扱い」にチェックしたステータスは、1週間後に自動でアーカイブへ移動します（繰り返し業務は対象外）。</p>
         <div id="settingStatusesList" class="settings-list"></div>
         <div class="settings-add">
           <input type="text" id="newStatusInput" placeholder="新しいステータス名" />
-          <input type="color" id="newStatusColor" value="#3b82f6" />
           <label style="font-size:12px; display:flex; align-items:center; gap:4px;">
             <input type="checkbox" id="newStatusCompleted" /> 完了扱い
           </label>
@@ -1650,23 +1693,21 @@
       </div>
 
       <div class="settings-section">
-        <h4>クライアント</h4>
+        <h4>クライアント <span style="font-size:11px; color:var(--text-sub); font-weight:400;">（ドラッグで並び替え可）</span></h4>
         <p class="settings-hint">タスクに紐付けるクライアント一覧を管理します。</p>
         <div id="settingClientsList" class="settings-list"></div>
         <div class="settings-add">
           <input type="text" id="newClientInput" placeholder="新しいクライアント名" />
-          <input type="color" id="newClientColor" value="#6366f1" />
           <button type="button" class="btn-primary" onclick="addClient()">追加</button>
         </div>
       </div>
 
       <div class="settings-section">
-        <h4>ストア</h4>
+        <h4>ストア <span style="font-size:11px; color:var(--text-sub); font-weight:400;">（ドラッグで並び替え可）</span></h4>
         <p class="settings-hint">タスクに紐付けるストア一覧を管理します（クライアント毎の複数ストア運用にどうぞ）。</p>
         <div id="settingStoresList" class="settings-list"></div>
         <div class="settings-add">
           <input type="text" id="newStoreInput" placeholder="新しいストア名" />
-          <input type="color" id="newStoreColor" value="#f43f5e" />
           <button type="button" class="btn-primary" onclick="addStore()">追加</button>
         </div>
       </div>
@@ -1727,22 +1768,23 @@ let currentTab = 'sales';
 
 // Task constants (defaults used when taskSettings is empty)
 const DEFAULT_TASK_CATEGORIES = [
-  { name: '自社EC',    color: '#0ea5e9' },
-  { name: 'ECコンサル', color: '#8b5cf6' },
-  { name: 'コーチング', color: '#ec4899' },
-  { name: 'その他',    color: '#64748b' }
+  { name: '自社EC',    color: '#bae6fd' },
+  { name: 'ECコンサル', color: '#ddd6fe' },
+  { name: 'コーチング', color: '#fbcfe8' },
+  { name: 'その他',    color: '#e5e7eb' }
 ];
 const DEFAULT_TASK_STATUSES = [
-  { name: '未着手',  color: '#94a3b8', completed: false },
-  { name: '着手中',  color: '#3b82f6', completed: false },
-  { name: '待機中',  color: '#f59e0b', completed: false },
-  { name: '一時完了', color: '#8b5cf6', completed: false },
-  { name: '完了',    color: '#10b981', completed: true }
+  { name: '未着手',  color: '#e5e7eb', completed: false },
+  { name: '着手中',  color: '#bfdbfe', completed: false },
+  { name: '待機中',  color: '#fed7aa', completed: false },
+  { name: '一時完了', color: '#ddd6fe', completed: false },
+  { name: '完了',    color: '#bbf7d0', completed: true }
 ];
-const CAT_PALETTE    = ['#0ea5e9','#8b5cf6','#ec4899','#64748b','#f59e0b','#10b981','#ef4444','#14b8a6','#f97316','#6366f1'];
-const STATUS_PALETTE = ['#94a3b8','#3b82f6','#f59e0b','#8b5cf6','#10b981','#0ea5e9','#ec4899','#ef4444','#14b8a6','#f97316'];
-const CLIENT_PALETTE = ['#6366f1','#14b8a6','#f97316','#84cc16','#06b6d4','#d946ef','#eab308','#0ea5e9','#8b5cf6','#ec4899'];
-const STORE_PALETTE  = ['#f43f5e','#22c55e','#eab308','#a855f7','#0ea5e9','#f97316','#14b8a6','#6366f1','#ec4899','#84cc16'];
+// Pastel color palettes (Tailwind 200-level tones)
+const CAT_PALETTE    = ['#bae6fd','#ddd6fe','#fbcfe8','#e5e7eb','#fde68a','#bbf7d0','#fecaca','#a5f3fc','#fed7aa','#c7d2fe'];
+const STATUS_PALETTE = ['#e5e7eb','#bfdbfe','#fed7aa','#ddd6fe','#bbf7d0','#bae6fd','#fbcfe8','#fecaca','#a5f3fc','#fde68a'];
+const CLIENT_PALETTE = ['#c7d2fe','#99f6e4','#fed7aa','#d9f99d','#bae6fd','#f5d0fe','#fef3c7','#ddd6fe','#fbcfe8','#bbf7d0'];
+const STORE_PALETTE  = ['#fecdd3','#d9f99d','#fef3c7','#e9d5ff','#a5f3fc','#fed7aa','#99f6e4','#c7d2fe','#fbcfe8','#bbf7d0'];
 const WEEKDAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
 
 // Task sort state (column-header sorting)
@@ -1837,6 +1879,54 @@ function getStoreColor(name) {
 function isCompletedStatus(name) {
   const s = getTaskStatuses().find(x => x.name === name);
   return s ? !!s.completed : false;
+}
+
+// Compute dark or white text color based on background luminance
+function textColorForBg(hex) {
+  if (!hex || typeof hex !== 'string' || hex.charAt(0) !== '#') return '#ffffff';
+  let h = hex.slice(1);
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  if (h.length !== 6) return '#ffffff';
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return '#ffffff';
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 160 ? '#1f2937' : '#ffffff';
+}
+
+// Auto-migrate existing default colors to the new pastel palette.
+// Only changes items whose (name, color) pair exactly matches the OLD defaults,
+// so user-customized colors are preserved.
+function migratePaletteToPastels() {
+  if (!store.taskSettings) return;
+  const OLD_CAT = {
+    '自社EC':    '#0ea5e9',
+    'ECコンサル': '#8b5cf6',
+    'コーチング': '#ec4899',
+    'その他':    '#64748b'
+  };
+  const OLD_STATUS = {
+    '未着手':  '#94a3b8',
+    '着手中':  '#3b82f6',
+    '待機中':  '#f59e0b',
+    '一時完了': '#8b5cf6',
+    '完了':    '#10b981'
+  };
+  let changed = false;
+  (store.taskSettings.categories || []).forEach(c => {
+    if (OLD_CAT[c.name] && OLD_CAT[c.name] === c.color) {
+      const def = DEFAULT_TASK_CATEGORIES.find(d => d.name === c.name);
+      if (def) { c.color = def.color; changed = true; }
+    }
+  });
+  (store.taskSettings.statuses || []).forEach(st => {
+    if (OLD_STATUS[st.name] && OLD_STATUS[st.name] === st.color) {
+      const def = DEFAULT_TASK_STATUSES.find(d => d.name === st.name);
+      if (def) { st.color = def.color; changed = true; }
+    }
+  });
+  if (changed) save();
 }
 
 function currentData() {
@@ -1954,6 +2044,7 @@ function load() {
   // Normalize all FYs
   store.fiscalYears.forEach(fy => ensureFY(fy));
   ensureTaskStore();
+  migratePaletteToPastels();
   currentFY = store.currentFY;
   MONTHS = buildMonths(currentFY);
   // Process recurring resets and archive on load
@@ -3562,13 +3653,13 @@ function renderTaskTable() {
     const storeColor  = t.store  ? getStoreColor(t.store)   : '';
     const statusColor = getStatusColor(t.status);
     const catBadge = t.category
-      ? `<span class="category-badge" style="background:${catColor}">${escapeHtml(t.category)}</span>`
+      ? `<span class="category-badge" style="background:${catColor};color:${textColorForBg(catColor)}">${escapeHtml(t.category)}</span>`
       : '';
     const clientBadge = t.client
-      ? `<span class="category-badge" style="background:${clientColor}">${escapeHtml(t.client)}</span>`
+      ? `<span class="category-badge" style="background:${clientColor};color:${textColorForBg(clientColor)}">${escapeHtml(t.client)}</span>`
       : '<span style="color:var(--text-sub); font-size:11px;">—</span>';
     const storeBadge = t.store
-      ? `<span class="category-badge" style="background:${storeColor}">${escapeHtml(t.store)}</span>`
+      ? `<span class="category-badge" style="background:${storeColor};color:${textColorForBg(storeColor)}">${escapeHtml(t.store)}</span>`
       : '<span style="color:var(--text-sub); font-size:11px;">—</span>';
     tr.innerHTML = `
       <td>${alertIcon}</td>
@@ -3616,13 +3707,13 @@ function renderArchivedTasks() {
     const clientColor = t.client ? getClientColor(t.client) : '';
     const storeColor  = t.store  ? getStoreColor(t.store)   : '';
     const catBadge = t.category
-      ? `<span class="category-badge" style="background:${catColor}">${escapeHtml(t.category)}</span>`
+      ? `<span class="category-badge" style="background:${catColor};color:${textColorForBg(catColor)}">${escapeHtml(t.category)}</span>`
       : '';
     const clientBadge = t.client
-      ? `<span class="category-badge" style="background:${clientColor}">${escapeHtml(t.client)}</span>`
+      ? `<span class="category-badge" style="background:${clientColor};color:${textColorForBg(clientColor)}">${escapeHtml(t.client)}</span>`
       : '<span style="color:var(--text-sub); font-size:11px;">—</span>';
     const storeBadge = t.store
-      ? `<span class="category-badge" style="background:${storeColor}">${escapeHtml(t.store)}</span>`
+      ? `<span class="category-badge" style="background:${storeColor};color:${textColorForBg(storeColor)}">${escapeHtml(t.store)}</span>`
       : '<span style="color:var(--text-sub); font-size:11px;">—</span>';
     tr.innerHTML = `
       <td>${catBadge}</td>
@@ -3930,6 +4021,77 @@ function clearAllArchivedTasks() {
   renderTaskView();
 }
 
+// ========== Settings Drag & Drop ==========
+let _settingsDragState = null;
+
+function _getSettingsList(kind) {
+  if (!store.taskSettings) return null;
+  switch (kind) {
+    case 'category': return store.taskSettings.categories;
+    case 'status':   return store.taskSettings.statuses;
+    case 'client':   return store.taskSettings.clients;
+    case 'store':    return store.taskSettings.stores;
+    default: return null;
+  }
+}
+
+function _rerenderSettingsFor(kind) {
+  if (kind === 'category') renderCategoriesSettings();
+  else if (kind === 'status') renderStatusesSettings();
+  else if (kind === 'client') renderClientsSettings();
+  else if (kind === 'store')  renderStoresSettings();
+}
+
+function onSettingsDragStart(e, kind, index) {
+  _settingsDragState = { kind, index };
+  try {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', kind + ':' + index);
+  } catch(_) {}
+  const row = e.target.closest && e.target.closest('.settings-item');
+  if (row) setTimeout(() => row.classList.add('dragging'), 0);
+}
+
+function onSettingsDragOver(e) {
+  if (!_settingsDragState) return;
+  e.preventDefault();
+  try { e.dataTransfer.dropEffect = 'move'; } catch(_) {}
+  const row = e.currentTarget;
+  if (row && row.classList) row.classList.add('drag-over');
+}
+
+function onSettingsDragLeave(e) {
+  const row = e.currentTarget;
+  if (row && row.classList) row.classList.remove('drag-over');
+}
+
+function onSettingsDrop(e, kind, targetIndex) {
+  e.preventDefault();
+  const row = e.currentTarget;
+  if (row && row.classList) row.classList.remove('drag-over');
+  if (!_settingsDragState || _settingsDragState.kind !== kind) return;
+  const fromIdx = _settingsDragState.index;
+  if (fromIdx === targetIndex) return;
+  const list = _getSettingsList(kind);
+  if (!list || fromIdx < 0 || fromIdx >= list.length) return;
+  const [moved] = list.splice(fromIdx, 1);
+  const adjustedTo = fromIdx < targetIndex ? targetIndex - 1 : targetIndex;
+  list.splice(adjustedTo, 0, moved);
+  save();
+  _rerenderSettingsFor(kind);
+  // Also refresh task form dropdowns so order is reflected immediately
+  populateTaskFormDropdowns();
+  populateTaskFilterDropdowns();
+}
+
+function onSettingsDragEnd(e) {
+  _settingsDragState = null;
+  document.querySelectorAll('.settings-item.dragging, .settings-item.drag-over').forEach(el => {
+    el.classList.remove('dragging');
+    el.classList.remove('drag-over');
+  });
+}
+
 // ========== Task Settings Modal ==========
 function openTaskSettingsModal() {
   ensureTaskStore();
@@ -3952,6 +4114,20 @@ function renderSettingsLists() {
   renderStoresSettings();
 }
 
+// Build common drag handlers inline snippet for a settings row
+function makeDragAttrs(kind, index) {
+  return `draggable="false"
+    ondragover="onSettingsDragOver(event)"
+    ondragleave="onSettingsDragLeave(event)"
+    ondrop="onSettingsDrop(event,'${kind}',${index})"`;
+}
+function makeDragHandle(kind, index) {
+  return `<span class="drag-handle" draggable="true"
+    ondragstart="onSettingsDragStart(event,'${kind}',${index})"
+    ondragend="onSettingsDragEnd(event)"
+    title="ドラッグで並び替え">⋮⋮</span>`;
+}
+
 function renderCategoriesSettings() {
   const list = document.getElementById('settingCategoriesList');
   if (!list) return;
@@ -3960,8 +4136,12 @@ function renderCategoriesSettings() {
   cats.forEach((c, i) => {
     const row = document.createElement('div');
     row.className = 'settings-item';
+    row.setAttribute('ondragover', 'onSettingsDragOver(event)');
+    row.setAttribute('ondragleave', 'onSettingsDragLeave(event)');
+    row.setAttribute('ondrop', `onSettingsDrop(event,'category',${i})`);
     row.innerHTML = `
-      <input type="color" value="${escapeAttr(c.color)}" onchange="updateCategoryColor(${i}, this.value)" />
+      ${makeDragHandle('category', i)}
+      <input type="color" value="${escapeAttr(c.color)}" title="色を変更" onchange="updateCategoryColor(${i}, this.value)" />
       <input type="text" value="${escapeAttr(c.name)}" onchange="updateCategoryName(${i}, this.value)" />
       <button type="button" class="btn-remove" ${cats.length <= 1 ? 'disabled' : ''} onclick="removeCategory(${i})">削除</button>
     `;
@@ -3977,8 +4157,12 @@ function renderStatusesSettings() {
   statuses.forEach((s, i) => {
     const row = document.createElement('div');
     row.className = 'settings-item';
+    row.setAttribute('ondragover', 'onSettingsDragOver(event)');
+    row.setAttribute('ondragleave', 'onSettingsDragLeave(event)');
+    row.setAttribute('ondrop', `onSettingsDrop(event,'status',${i})`);
     row.innerHTML = `
-      <input type="color" value="${escapeAttr(s.color)}" onchange="updateStatusColor(${i}, this.value)" />
+      ${makeDragHandle('status', i)}
+      <input type="color" value="${escapeAttr(s.color)}" title="色を変更" onchange="updateStatusColor(${i}, this.value)" />
       <input type="text" value="${escapeAttr(s.name)}" onchange="updateStatusName(${i}, this.value)" />
       <label><input type="checkbox" ${s.completed ? 'checked' : ''} onchange="toggleStatusCompleted(${i}, this.checked)" /> 完了扱い</label>
       <button type="button" class="btn-remove" ${statuses.length <= 1 ? 'disabled' : ''} onclick="removeStatus(${i})">削除</button>
@@ -3999,8 +4183,12 @@ function renderClientsSettings() {
   clients.forEach((c, i) => {
     const row = document.createElement('div');
     row.className = 'settings-item';
+    row.setAttribute('ondragover', 'onSettingsDragOver(event)');
+    row.setAttribute('ondragleave', 'onSettingsDragLeave(event)');
+    row.setAttribute('ondrop', `onSettingsDrop(event,'client',${i})`);
     row.innerHTML = `
-      <input type="color" value="${escapeAttr(c.color)}" onchange="updateClientColor(${i}, this.value)" />
+      ${makeDragHandle('client', i)}
+      <input type="color" value="${escapeAttr(c.color)}" title="色を変更" onchange="updateClientColor(${i}, this.value)" />
       <input type="text" value="${escapeAttr(c.name)}" onchange="updateClientName(${i}, this.value)" />
       <button type="button" class="btn-remove" onclick="removeClient(${i})">削除</button>
     `;
@@ -4011,12 +4199,11 @@ function renderClientsSettings() {
 // Category CRUD
 function addCategory() {
   const input = document.getElementById('newCategoryInput');
-  const colorInput = document.getElementById('newCategoryColor');
   const name = (input.value || '').trim();
   if (!name) { alert('カテゴリ名を入力してください'); return; }
   const cats = getTaskCategories();
   if (cats.some(c => c.name === name)) { alert('同じ名前のカテゴリが既にあります'); return; }
-  cats.push({ name, color: colorInput.value || CAT_PALETTE[cats.length % CAT_PALETTE.length] });
+  cats.push({ name, color: CAT_PALETTE[cats.length % CAT_PALETTE.length] });
   save();
   input.value = '';
   renderCategoriesSettings();
@@ -4057,7 +4244,6 @@ function removeCategory(i) {
 // Status CRUD
 function addStatus() {
   const input = document.getElementById('newStatusInput');
-  const colorInput = document.getElementById('newStatusColor');
   const completed = document.getElementById('newStatusCompleted').checked;
   const name = (input.value || '').trim();
   if (!name) { alert('ステータス名を入力してください'); return; }
@@ -4065,7 +4251,7 @@ function addStatus() {
   if (statuses.some(s => s.name === name)) { alert('同じ名前のステータスが既にあります'); return; }
   statuses.push({
     name,
-    color: colorInput.value || STATUS_PALETTE[statuses.length % STATUS_PALETTE.length],
+    color: STATUS_PALETTE[statuses.length % STATUS_PALETTE.length],
     completed
   });
   save();
@@ -4113,12 +4299,11 @@ function removeStatus(i) {
 // Client CRUD
 function addClient() {
   const input = document.getElementById('newClientInput');
-  const colorInput = document.getElementById('newClientColor');
   const name = (input.value || '').trim();
   if (!name) { alert('クライアント名を入力してください'); return; }
   const clients = getTaskClients();
   if (clients.some(c => c.name === name)) { alert('同じ名前のクライアントが既にあります'); return; }
-  clients.push({ name, color: colorInput.value || CLIENT_PALETTE[clients.length % CLIENT_PALETTE.length] });
+  clients.push({ name, color: CLIENT_PALETTE[clients.length % CLIENT_PALETTE.length] });
   save();
   input.value = '';
   renderClientsSettings();
@@ -4167,8 +4352,12 @@ function renderStoresSettings() {
   stores.forEach((c, i) => {
     const row = document.createElement('div');
     row.className = 'settings-item';
+    row.setAttribute('ondragover', 'onSettingsDragOver(event)');
+    row.setAttribute('ondragleave', 'onSettingsDragLeave(event)');
+    row.setAttribute('ondrop', `onSettingsDrop(event,'store',${i})`);
     row.innerHTML = `
-      <input type="color" value="${escapeAttr(c.color)}" onchange="updateStoreColor(${i}, this.value)" />
+      ${makeDragHandle('store', i)}
+      <input type="color" value="${escapeAttr(c.color)}" title="色を変更" onchange="updateStoreColor(${i}, this.value)" />
       <input type="text" value="${escapeAttr(c.name)}" onchange="updateStoreName(${i}, this.value)" />
       <button type="button" class="btn-remove" onclick="removeStore(${i})">削除</button>
     `;
@@ -4178,12 +4367,11 @@ function renderStoresSettings() {
 
 function addStore() {
   const input = document.getElementById('newStoreInput');
-  const colorInput = document.getElementById('newStoreColor');
   const name = (input.value || '').trim();
   if (!name) { alert('ストア名を入力してください'); return; }
   const stores = getTaskStores();
   if (stores.some(c => c.name === name)) { alert('同じ名前のストアが既にあります'); return; }
-  stores.push({ name, color: colorInput.value || STORE_PALETTE[stores.length % STORE_PALETTE.length] });
+  stores.push({ name, color: STORE_PALETTE[stores.length % STORE_PALETTE.length] });
   save();
   input.value = '';
   renderStoresSettings();
