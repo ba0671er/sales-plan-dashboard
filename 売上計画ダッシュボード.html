@@ -1238,6 +1238,235 @@
     background: #f3f4f6;
     border-radius: 8px;
   }
+
+  /* Time tracking */
+  .time-cell {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    min-width: 120px;
+  }
+  .time-display {
+    font-size: 12px;
+    color: var(--text-sub);
+  }
+  .time-display .actual { font-weight: 600; color: var(--text); }
+  .time-display .sep { margin: 0 2px; opacity: 0.4; }
+  .time-display .estimate { opacity: 0.75; }
+  .time-display.over { color: var(--danger); }
+  .time-display.over .actual { color: var(--danger); }
+
+  .timer-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: white;
+    color: var(--primary);
+    cursor: pointer;
+    font-size: 10px;
+    padding: 0;
+    margin-left: 6px;
+    transition: all 0.15s;
+  }
+  .timer-btn:hover { border-color: var(--primary); background: #eff6ff; }
+  .timer-btn.running {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: white;
+    animation: timer-pulse 2s infinite;
+  }
+  @keyframes timer-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+    50% { box-shadow: 0 0 0 4px rgba(239,68,68,0); }
+  }
+
+  /* Focus time top bar */
+  .focus-bar {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+    color: white;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    box-shadow: var(--shadow-md);
+  }
+  .focus-bar-label {
+    font-size: 11px;
+    opacity: 0.85;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .focus-bar-value {
+    font-size: 20px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .focus-bar-sub {
+    font-size: 11px;
+    opacity: 0.8;
+  }
+  .focus-bar .spacer { flex: 1; }
+  .focus-bar button {
+    background: rgba(255,255,255,0.95);
+    color: var(--primary-dark);
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .focus-bar button:hover { background: white; }
+
+  .focus-bar .running-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(239,68,68,0.2);
+    border: 1px solid rgba(239,68,68,0.4);
+    border-radius: 6px;
+    font-size: 11px;
+  }
+  .focus-bar .running-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ef4444;
+    animation: timer-pulse 2s infinite;
+  }
+
+  /* Weekly review modal */
+  .wreview-step {
+    display: none;
+  }
+  .wreview-step.active { display: block; }
+  .wreview-steps-indicator {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .wreview-steps-indicator .dot {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+  }
+  .wreview-steps-indicator .dot.active { background: var(--primary); }
+
+  .wreview-summary {
+    background: #eff6ff;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+  .wreview-summary strong { font-size: 20px; color: var(--primary); }
+
+  /* Client insights table */
+  .insights-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 1000px) {
+    .insights-grid { grid-template-columns: 1fr; }
+  }
+
+  .insights-table {
+    width: 100%;
+    font-size: 12px;
+  }
+  .insights-table th {
+    font-size: 10px;
+    text-align: left;
+    color: var(--text-sub);
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .insights-table td {
+    padding: 8px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .insights-table tr:last-child td { border-bottom: none; }
+  .insights-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .insights-table .rate-good { color: var(--success); font-weight: 600; }
+  .insights-table .rate-mid  { color: var(--warning); font-weight: 600; }
+  .insights-table .rate-low  { color: var(--danger);  font-weight: 600; }
+
+  /* Productivity heatmap */
+  .heatmap-grid {
+    display: grid;
+    grid-template-columns: 32px repeat(24, 1fr);
+    gap: 2px;
+    font-size: 9px;
+    color: var(--text-sub);
+    max-width: 720px;
+  }
+  .heatmap-cell {
+    aspect-ratio: 1;
+    background: #f3f4f6;
+    border-radius: 2px;
+    cursor: default;
+  }
+  .heatmap-label-day {
+    text-align: right;
+    padding-right: 4px;
+    line-height: 1.5;
+    align-self: center;
+  }
+  .heatmap-label-hour {
+    text-align: center;
+    grid-row: 1;
+  }
+  .heatmap-legend {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 10px;
+    color: var(--text-sub);
+    margin-top: 12px;
+  }
+  .heatmap-legend-gradient {
+    width: 100px;
+    height: 10px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #f3f4f6, #2563eb);
+  }
+
+  /* Invoice calendar */
+  .invoice-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .invoice-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #f9fafb;
+    border-radius: 6px;
+    border-left: 3px solid var(--text-sub);
+    font-size: 12px;
+  }
+  .invoice-row.overdue { border-left-color: var(--danger); background: #fef2f2; }
+  .invoice-row.due-soon { border-left-color: var(--warning); background: #fffbeb; }
+  .invoice-row.done { border-left-color: var(--success); opacity: 0.7; }
+  .invoice-date { min-width: 90px; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .invoice-client { flex: 1; }
+  .invoice-amount { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 110px; text-align: right; }
+  .invoice-status { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+  .invoice-status.未請求 { background: #fee2e2; color: #991b1b; }
+  .invoice-status.請求済 { background: #fef3c7; color: #92400e; }
+  .invoice-status.入金済 { background: #d1fae5; color: #065f46; }
 </style>
 </head>
 <body>
@@ -1428,6 +1657,22 @@
           <label>契約金額（総額・円）</label>
           <input type="number" id="f_amount" placeholder="1000000" />
         </div>
+        <div class="form-field">
+          <label>請求予定日</label>
+          <input type="date" id="f_invoiceDate" />
+        </div>
+        <div class="form-field">
+          <label>入金予定日</label>
+          <input type="date" id="f_paymentDate" />
+        </div>
+        <div class="form-field">
+          <label>請求ステータス</label>
+          <select id="f_invoiceStatus">
+            <option value="未請求">未請求</option>
+            <option value="請求済">請求済</option>
+            <option value="入金済">入金済</option>
+          </select>
+        </div>
         <div class="form-field full">
           <label>備考</label>
           <textarea id="f_note" rows="2" placeholder="自由記入"></textarea>
@@ -1437,6 +1682,14 @@
         <button class="btn-secondary" onclick="resetForm()">クリア</button>
         <button class="btn-primary" id="saveBtn" onclick="saveDeal()">案件を追加</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Invoice / Payment Calendar -->
+  <div class="section">
+    <h2 class="section-title">請求・入金カレンダー</h2>
+    <div class="card">
+      <div id="invoiceCalendarList"></div>
     </div>
   </div>
 
@@ -1558,6 +1811,23 @@
       </div>
     </div>
 
+    <!-- Focus bar: today's tracked time + weekly review button -->
+    <div class="focus-bar">
+      <div>
+        <div class="focus-bar-label">今日の集中時間</div>
+        <div class="focus-bar-value" id="focusToday">0h 0m</div>
+        <div class="focus-bar-sub" id="focusTodaySub">タスクを開始してください</div>
+      </div>
+      <div id="focusRunningBox" style="display:none;">
+        <span class="running-indicator">
+          <span class="running-dot"></span>
+          <span id="focusRunningText">計測中</span>
+        </span>
+      </div>
+      <div class="spacer"></div>
+      <button type="button" onclick="openWeeklyReviewModal()">📝 今週の振り返り</button>
+    </div>
+
     <!-- Client Summary -->
     <div class="section">
       <div class="toolbar">
@@ -1604,6 +1874,10 @@
           <div class="form-field">
             <label>ステータス</label>
             <select id="t_status"></select>
+          </div>
+          <div class="form-field">
+            <label>見積もり時間 <span style="font-weight:400; color:var(--text-sub);">(例: 90 / 1h30m / 1:30)</span></label>
+            <input type="text" id="t_estimate" placeholder="60" />
           </div>
           <div class="form-field full">
             <label>URL</label>
@@ -1734,6 +2008,7 @@
                 <th class="sortable" onclick="sortTasksBy('content')">タスク内容<span class="sort-indicator" id="sortInd_content"></span></th>
                 <th class="sortable" onclick="sortTasksBy('dueDate')">期日<span class="sort-indicator" id="sortInd_dueDate"></span></th>
                 <th class="sortable" onclick="sortTasksBy('status')">ステータス<span class="sort-indicator" id="sortInd_status"></span></th>
+                <th class="sortable" onclick="sortTasksBy('time')">時間<span class="sort-indicator" id="sortInd_time"></span></th>
                 <th class="sortable" onclick="sortTasksBy('recurring')">繰り返し<span class="sort-indicator" id="sortInd_recurring"></span></th>
                 <th>URL</th>
                 <th>コメント</th>
@@ -1742,6 +2017,27 @@
             </thead>
             <tbody id="tasksBody"></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Productivity Insights: client hourly rate + day-of-week heatmap -->
+    <div class="section">
+      <h2 class="section-title">生産性インサイト</h2>
+      <div class="insights-grid">
+        <div class="card">
+          <h3 class="chart-title">💰 クライアント別 時給・稼働</h3>
+          <div id="clientHourlyList"></div>
+        </div>
+        <div class="card">
+          <h3 class="chart-title">🔥 曜日×時間帯 生産性ヒートマップ</h3>
+          <div id="heatmapContainer"></div>
+          <div class="heatmap-legend">
+            <span>少</span>
+            <div class="heatmap-legend-gradient"></div>
+            <span>多</span>
+            <span style="margin-left:16px;">※ 完了タスクの時刻から集計</span>
+          </div>
         </div>
       </div>
     </div>
@@ -1783,6 +2079,70 @@
 
   </div><!-- /tasks-tab -->
 
+</div>
+
+<!-- Weekly Review Modal -->
+<div class="modal-overlay" id="weeklyReviewModal" style="display:none;" onclick="if(event.target===this)closeWeeklyReviewModal()">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 style="margin:0; font-size:18px;">📝 今週の振り返り</h3>
+      <button type="button" class="modal-close" onclick="closeWeeklyReviewModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="wreview-steps-indicator">
+        <div class="dot active" id="wrDot1"></div>
+        <div class="dot" id="wrDot2"></div>
+        <div class="dot" id="wrDot3"></div>
+        <div class="dot" id="wrDot4"></div>
+      </div>
+
+      <div class="wreview-step active" id="wrStep1">
+        <h4 style="margin:0 0 8px 0;">① 今週の完了タスク</h4>
+        <div class="wreview-summary">
+          <strong id="wrCompletedCount">0</strong> 件のタスクを完了しました。
+          <div id="wrCompletedList" style="margin-top:10px; font-size:12px; max-height:200px; overflow-y:auto;"></div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button type="button" class="btn-primary" onclick="wrNextStep()">次へ →</button>
+        </div>
+      </div>
+
+      <div class="wreview-step" id="wrStep2">
+        <h4 style="margin:0 0 8px 0;">② 未完了タスク / やり残したこと</h4>
+        <p style="font-size:12px; color:var(--text-sub); margin:0 0 8px 0;">なぜ進まなかったか？ 来週の改善点は？</p>
+        <textarea id="wrNotCompleted" rows="5" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:6px; font-family:inherit; font-size:13px; box-sizing:border-box;" placeholder="例) A社の納品タスクが遅れた → 見積もりが甘かった。次回はバッファを30%多く取る"></textarea>
+        <div style="display:flex; justify-content:space-between; gap:8px; margin-top:12px;">
+          <button type="button" class="btn-secondary" onclick="wrPrevStep()">← 戻る</button>
+          <button type="button" class="btn-primary" onclick="wrNextStep()">次へ →</button>
+        </div>
+      </div>
+
+      <div class="wreview-step" id="wrStep3">
+        <h4 style="margin:0 0 8px 0;">③ 来週のフォーカス（最大3つ）</h4>
+        <p style="font-size:12px; color:var(--text-sub); margin:0 0 8px 0;">来週絶対にやり切る3つを宣言してください。</p>
+        <textarea id="wrNextFocus" rows="5" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:6px; font-family:inherit; font-size:13px; box-sizing:border-box;" placeholder="1. 〇〇\n2. 〇〇\n3. 〇〇"></textarea>
+        <div style="display:flex; justify-content:space-between; gap:8px; margin-top:12px;">
+          <button type="button" class="btn-secondary" onclick="wrPrevStep()">← 戻る</button>
+          <button type="button" class="btn-primary" onclick="wrNextStep()">次へ →</button>
+        </div>
+      </div>
+
+      <div class="wreview-step" id="wrStep4">
+        <h4 style="margin:0 0 8px 0;">④ 今週の学び・気づき（1つ）</h4>
+        <p style="font-size:12px; color:var(--text-sub); margin:0 0 8px 0;">小さくてOK。気づきを言語化するのが大事。</p>
+        <textarea id="wrLearning" rows="5" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:6px; font-family:inherit; font-size:13px; box-sizing:border-box;" placeholder="例) 午前に重めのタスクを入れると生産性が倍"></textarea>
+        <div style="display:flex; justify-content:space-between; gap:8px; margin-top:12px;">
+          <button type="button" class="btn-secondary" onclick="wrPrevStep()">← 戻る</button>
+          <button type="button" class="btn-primary" onclick="saveWeeklyReview()">✓ 振り返りを保存</button>
+        </div>
+      </div>
+
+      <div style="margin-top:20px; padding-top:12px; border-top:1px dashed var(--border);">
+        <h4 style="margin:0 0 8px 0; font-size:12px; color:var(--text-sub);">過去の振り返り</h4>
+        <div id="wrPastList" style="max-height:150px; overflow-y:auto; font-size:12px;"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Task Settings Modal -->
@@ -1936,6 +2296,12 @@ function ensureFY(fy) {
   if (!Array.isArray(store.data[fy].monthlyTargets) || store.data[fy].monthlyTargets.length !== 12) {
     store.data[fy].monthlyTargets = new Array(12).fill(0);
   }
+  // Normalize deals: ensure invoice/payment fields exist
+  store.data[fy].deals.forEach(d => {
+    if (typeof d.invoiceDate === 'undefined')   d.invoiceDate = '';
+    if (typeof d.paymentDate === 'undefined')   d.paymentDate = '';
+    if (typeof d.invoiceStatus === 'undefined') d.invoiceStatus = '未請求';
+  });
   if (!store.fiscalYears.includes(fy)) {
     store.fiscalYears.push(fy);
     store.fiscalYears.sort((a, b) => a - b);
@@ -1995,12 +2361,20 @@ function ensureTaskStore() {
     if (typeof t.client   === 'undefined') t.client   = '';
     if (typeof t.store    === 'undefined') t.store    = '';
     if (typeof t.assignee === 'undefined') t.assignee = '';
+    if (typeof t.estimatedMinutes === 'undefined') t.estimatedMinutes = null;
+    if (!Array.isArray(t.timeEntries)) t.timeEntries = [];
+    if (typeof t.activeStart === 'undefined') t.activeStart = null;
   });
   store.archivedTasks.forEach(t => {
     if (typeof t.client   === 'undefined') t.client   = '';
     if (typeof t.store    === 'undefined') t.store    = '';
     if (typeof t.assignee === 'undefined') t.assignee = '';
+    if (typeof t.estimatedMinutes === 'undefined') t.estimatedMinutes = null;
+    if (!Array.isArray(t.timeEntries)) t.timeEntries = [];
   });
+
+  // Weekly reviews store
+  if (!Array.isArray(store.weeklyReviews)) store.weeklyReviews = [];
 }
 
 // ========== Task settings helpers ==========
@@ -2033,6 +2407,77 @@ function getAssigneeColor(name) {
 function isCompletedStatus(name) {
   const s = getTaskStatuses().find(x => x.name === name);
   return s ? !!s.completed : false;
+}
+
+// ========== Time / Duration Helpers ==========
+// Parse user input like "60", "1h", "1h30m", "1:30", "1.5h", "90m" → minutes
+function parseTimeInput(str) {
+  if (str == null) return null;
+  str = String(str).trim().toLowerCase();
+  if (!str) return null;
+  // Just digits → minutes
+  if (/^\d+$/.test(str)) return Number(str);
+  // Decimal → hours
+  if (/^\d*\.\d+$/.test(str)) return Math.round(Number(str) * 60);
+  // HH:MM
+  const hm = str.match(/^(\d+):(\d+)$/);
+  if (hm) return Number(hm[1]) * 60 + Number(hm[2]);
+  // Composite: 1h30m, 1h, 30m, 1.5h
+  let total = 0;
+  const h = str.match(/(\d+(?:\.\d+)?)\s*h/);
+  const m = str.match(/(\d+)\s*m/);
+  if (h) total += Math.round(Number(h[1]) * 60);
+  if (m) total += Number(m[1]);
+  return total > 0 ? total : null;
+}
+
+// Format minutes → "1h30m" / "45m" / "2h"
+function formatMinutes(mins) {
+  if (mins == null || mins <= 0) return '—';
+  mins = Math.round(mins);
+  if (mins < 60) return mins + 'm';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m === 0 ? h + 'h' : h + 'h' + m + 'm';
+}
+
+// Compute tracked time (committed entries only, excluding active session)
+function committedMinutes(task) {
+  if (!task || !Array.isArray(task.timeEntries)) return 0;
+  return task.timeEntries.reduce((sum, e) => sum + (Number(e.minutes) || 0), 0);
+}
+
+// Compute current elapsed of active session (rounded down to minutes)
+function currentElapsedMinutes(task) {
+  if (!task || !task.activeStart) return 0;
+  const start = new Date(task.activeStart).getTime();
+  if (isNaN(start)) return 0;
+  const elapsed = Date.now() - start;
+  return Math.floor(elapsed / 60000);
+}
+
+// Total tracked = committed + current elapsed (if any)
+function totalTrackedMinutes(task) {
+  return committedMinutes(task) + currentElapsedMinutes(task);
+}
+
+// Sum of time entries that fall on a given YYYY-MM-DD (日本時間)
+function minutesOnDate(task, ymd) {
+  if (!task || !Array.isArray(task.timeEntries)) return 0;
+  let total = 0;
+  task.timeEntries.forEach(e => {
+    if (!e.start) return;
+    const d = new Date(e.start);
+    const dymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (dymd === ymd) total += (Number(e.minutes) || 0);
+  });
+  // Also include active session if it started today
+  if (task.activeStart) {
+    const d = new Date(task.activeStart);
+    const dymd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (dymd === ymd) total += currentElapsedMinutes(task);
+  }
+  return total;
 }
 
 // Compute dark or white text color based on background luminance
@@ -2204,6 +2649,8 @@ function load() {
   // Process recurring resets and archive on load
   processRecurringTasks();
   archiveCompletedTasks();
+  // Auto-close any dangling time-tracking sessions from a previous crash
+  reconcileDanglingTimers();
 }
 
 function annualTarget() {
@@ -2364,6 +2811,7 @@ function render() {
   renderYoYChart();
   renderStatusSummary();
   renderRanking();
+  renderInvoiceCalendar();
   renderTable();
 }
 
@@ -2842,6 +3290,9 @@ function saveDeal() {
     start: document.getElementById('f_start').value,
     end: document.getElementById('f_end').value,
     amount: Number(document.getElementById('f_amount').value) || 0,
+    invoiceDate: (document.getElementById('f_invoiceDate') || {}).value || '',
+    paymentDate: (document.getElementById('f_paymentDate') || {}).value || '',
+    invoiceStatus: (document.getElementById('f_invoiceStatus') || {}).value || '未請求',
     note: document.getElementById('f_note').value.trim()
   };
   if (!deal.client) { alert('クライアント名を入力してください'); return; }
@@ -2869,6 +3320,12 @@ function editDeal(id) {
   document.getElementById('f_start').value = d.start;
   document.getElementById('f_end').value = d.end;
   document.getElementById('f_amount').value = d.amount;
+  const inv = document.getElementById('f_invoiceDate');
+  const pay = document.getElementById('f_paymentDate');
+  const inst = document.getElementById('f_invoiceStatus');
+  if (inv) inv.value = d.invoiceDate || '';
+  if (pay) pay.value = d.paymentDate || '';
+  if (inst) inst.value = d.invoiceStatus || '未請求';
   document.getElementById('f_note').value = d.note || '';
   document.getElementById('saveBtn').textContent = '更新する';
   window.scrollTo({ top: document.querySelector('.form-grid').offsetTop - 80, behavior: 'smooth' });
@@ -2892,7 +3349,84 @@ function resetForm() {
   document.getElementById('f_end').value = '';
   document.getElementById('f_amount').value = '';
   document.getElementById('f_note').value = '';
+  const inv = document.getElementById('f_invoiceDate');
+  const pay = document.getElementById('f_paymentDate');
+  const inst = document.getElementById('f_invoiceStatus');
+  if (inv) inv.value = '';
+  if (pay) pay.value = '';
+  if (inst) inst.value = '未請求';
   document.getElementById('saveBtn').textContent = '案件を追加';
+}
+
+// ========== Invoice / Payment Calendar (C2) ==========
+function renderInvoiceCalendar() {
+  const el = document.getElementById('invoiceCalendarList');
+  if (!el) return;
+
+  // Collect all events (invoice / payment) from all FYs' deals
+  const events = [];
+  Object.keys(store.data || {}).forEach(fy => {
+    const deals = (store.data[fy] && store.data[fy].deals) || [];
+    deals.forEach(d => {
+      if (d.invoiceDate) {
+        events.push({
+          kind: '請求',
+          date: d.invoiceDate,
+          client: d.client || '',
+          project: d.project || '',
+          amount: d.amount || 0,
+          status: d.invoiceStatus || '未請求',
+          dealId: d.id
+        });
+      }
+      if (d.paymentDate) {
+        events.push({
+          kind: '入金',
+          date: d.paymentDate,
+          client: d.client || '',
+          project: d.project || '',
+          amount: d.amount || 0,
+          status: d.invoiceStatus || '未請求',
+          dealId: d.id
+        });
+      }
+    });
+  });
+
+  if (events.length === 0) {
+    el.innerHTML = '<div style="color:var(--text-sub); font-size:12px; padding:12px;">案件に請求予定日 / 入金予定日を入力すると、ここに一覧が表示されます。</div>';
+    return;
+  }
+
+  events.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const today = todayStr();
+  const soonMs = 7 * 24 * 60 * 60 * 1000;
+
+  let html = '<div class="invoice-list">';
+  events.forEach(ev => {
+    const isPast = ev.date < today;
+    const msDiff = new Date(ev.date).getTime() - new Date(today).getTime();
+    const isSoon = !isPast && msDiff <= soonMs;
+    const isDone = (ev.kind === '請求' && (ev.status === '請求済' || ev.status === '入金済'))
+                 || (ev.kind === '入金' && ev.status === '入金済');
+    let cls = 'invoice-row';
+    if (isDone) cls += ' done';
+    else if (isPast) cls += ' overdue';
+    else if (isSoon) cls += ' due-soon';
+    const dateParts = ev.date.split('-');
+    const shortDate = `${dateParts[1]}/${dateParts[2]}`;
+    const amountStr = '¥' + Math.round(ev.amount).toLocaleString('ja-JP');
+    const kindLabel = ev.kind === '請求' ? '📄 請求' : '💰 入金';
+    html += `<div class="${cls}">
+      <span class="invoice-date">${shortDate} ${kindLabel}</span>
+      <span class="invoice-client">${escapeHtml(ev.client)}${ev.project ? ' / ' + escapeHtml(ev.project) : ''}</span>
+      <span class="invoice-amount">${amountStr}</span>
+      <span class="invoice-status ${escapeAttr(ev.status)}">${escapeHtml(ev.status)}</span>
+      <button type="button" class="icon-btn" onclick="editDeal('${escapeAttr(ev.dealId)}')">編集</button>
+    </div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 // ========== CSV / Download ==========
@@ -2922,13 +3456,14 @@ function dateStr() {
 }
 
 function buildDealsCSV() {
-  const headers = ['ステータス','クライアント','案件名','開始日','終了日','契約金額','月額','契約月数','備考'];
+  const headers = ['ステータス','クライアント','案件名','開始日','終了日','契約金額','月額','契約月数','請求予定日','入金予定日','請求ステータス','備考'];
   const rows = deals.map(d => {
     const start = new Date(d.start);
     const end = new Date(d.end);
     const months = (end.getFullYear()*12+end.getMonth()) - (start.getFullYear()*12+start.getMonth()) + 1;
     const perMonth = months > 0 ? Math.round(d.amount / months) : 0;
-    return [d.status, d.client, d.project||'', d.start, d.end, d.amount, perMonth, months, d.note||''];
+    return [d.status, d.client, d.project||'', d.start, d.end, d.amount, perMonth, months,
+            d.invoiceDate||'', d.paymentDate||'', d.invoiceStatus||'未請求', d.note||''];
   });
   return toCSV([headers, ...rows]);
 }
@@ -3152,12 +3687,23 @@ function parseCSVLine(line) {
 function importDealsCSV(text, replace) {
   const rows = parseCSV(text);
   if (rows.length < 2) { alert('データ行がありません'); return; }
+  // Detect format by header. Legacy: 9 columns, new: 12 columns with invoice fields
+  const header = rows[0].map(c => (c || '').trim());
+  const hasInvoice = header.includes('請求予定日');
   const imported = [];
   for (let i = 1; i < rows.length; i++) {
     const parts = rows[i];
     if (parts.length < 6) continue;
     const client = (parts[1] || '').trim();
     if (!client) continue;
+    // Column layout:
+    //   0:status 1:client 2:project 3:start 4:end 5:amount 6:perMonth 7:months
+    //   8:invoiceDate(new) 9:paymentDate(new) 10:invoiceStatus(new) 11:note(new)
+    //   or 8:note (legacy)
+    const invoiceDate   = hasInvoice ? (parts[8]  || '').trim() : '';
+    const paymentDate   = hasInvoice ? (parts[9]  || '').trim() : '';
+    const invoiceStatus = hasInvoice ? ((parts[10] || '未請求').trim() || '未請求') : '未請求';
+    const note          = hasInvoice ? (parts[11] || '').trim() : (parts[8] || parts[6] || '').trim();
     imported.push({
       id: String(Date.now()) + i + Math.random().toString(36).slice(2,6),
       status: (parts[0] || '見込み中').trim(),
@@ -3166,7 +3712,10 @@ function importDealsCSV(text, replace) {
       start: (parts[3] || '').trim(),
       end: (parts[4] || '').trim(),
       amount: Number(String(parts[5]).replace(/[^\d.-]/g, '')) || 0,
-      note: (parts[8] || parts[6] || '').trim()
+      invoiceDate: invoiceDate,
+      paymentDate: paymentDate,
+      invoiceStatus: invoiceStatus,
+      note: note
     });
   }
   if (imported.length === 0) { alert('有効なデータがありませんでした'); return; }
@@ -3679,15 +4228,266 @@ function recurringLabel(recurring) {
   return '';
 }
 
+// ========== Weekly Review (B3) ==========
+// Compute the Monday-Sunday ISO week containing `date` → returns { start, end } YYYY-MM-DD
+function weekRange(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  // getDay: 0=Sun..6=Sat. We want Mon-Sun weeks.
+  const day = d.getDay();
+  const diffToMon = (day === 0 ? -6 : 1 - day);
+  const monday = new Date(d);
+  monday.setDate(monday.getDate() + diffToMon);
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+  const fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  return { start: fmt(monday), end: fmt(sunday) };
+}
+
+// Find review record for the week containing `date`
+function getReviewForWeek(date) {
+  const range = weekRange(date);
+  return (store.weeklyReviews || []).find(r => r.weekEnd === range.end);
+}
+
+// Get completed tasks during current week
+function getCompletedThisWeek() {
+  const range = weekRange(new Date());
+  const startMs = new Date(range.start + 'T00:00:00').getTime();
+  const endMs = new Date(range.end + 'T23:59:59').getTime();
+  const all = (store.tasks || []).concat(store.archivedTasks || []);
+  return all.filter(t => {
+    if (!t.completedAt) return false;
+    const t2 = new Date(t.completedAt).getTime();
+    return t2 >= startMs && t2 <= endMs;
+  }).sort((a, b) => (a.completedAt || '').localeCompare(b.completedAt || ''));
+}
+
+let _wrCurrentStep = 1;
+function openWeeklyReviewModal() {
+  _wrCurrentStep = 1;
+  // Populate step 1 with completed tasks this week
+  const completed = getCompletedThisWeek();
+  const countEl = document.getElementById('wrCompletedCount');
+  const listEl = document.getElementById('wrCompletedList');
+  if (countEl) countEl.textContent = completed.length;
+  if (listEl) {
+    if (completed.length === 0) {
+      listEl.innerHTML = '<div style="color:var(--text-sub);">今週はまだ完了したタスクがありません。</div>';
+    } else {
+      listEl.innerHTML = completed.map(t => {
+        const d = t.completedAt ? new Date(t.completedAt) : null;
+        const dateStr = d ? `${d.getMonth()+1}/${d.getDate()}` : '';
+        return `<div style="padding:3px 0;">✓ ${escapeHtml(dateStr)} ${escapeHtml(t.content || '')}${t.client ? ` <span style="color:var(--text-sub);">(${escapeHtml(t.client)})</span>` : ''}</div>`;
+      }).join('');
+    }
+  }
+  // Pre-fill from existing review if any
+  const existing = getReviewForWeek(new Date());
+  document.getElementById('wrNotCompleted').value = existing ? (existing.notCompleted || '') : '';
+  document.getElementById('wrNextFocus').value   = existing ? (existing.nextFocus   || '') : '';
+  document.getElementById('wrLearning').value    = existing ? (existing.learning    || '') : '';
+  showWrStep(1);
+  document.getElementById('weeklyReviewModal').style.display = 'flex';
+}
+
+function closeWeeklyReviewModal() {
+  document.getElementById('weeklyReviewModal').style.display = 'none';
+}
+
+function showWrStep(n) {
+  _wrCurrentStep = n;
+  for (let i = 1; i <= 4; i++) {
+    const step = document.getElementById('wrStep' + i);
+    if (step) step.classList.toggle('active', i === n);
+    const dot = document.getElementById('wrDot' + i);
+    if (dot) dot.classList.toggle('active', i <= n);
+  }
+}
+
+function wrNextStep() {
+  if (_wrCurrentStep < 4) showWrStep(_wrCurrentStep + 1);
+}
+function wrPrevStep() {
+  if (_wrCurrentStep > 1) showWrStep(_wrCurrentStep - 1);
+}
+
+function saveWeeklyReview() {
+  ensureTaskStore();
+  const range = weekRange(new Date());
+  const review = {
+    weekStart: range.start,
+    weekEnd: range.end,
+    completedCount: getCompletedThisWeek().length,
+    notCompleted: document.getElementById('wrNotCompleted').value.trim(),
+    nextFocus: document.getElementById('wrNextFocus').value.trim(),
+    learning: document.getElementById('wrLearning').value.trim(),
+    createdAt: new Date().toISOString()
+  };
+  // Replace existing for same week or push new
+  if (!Array.isArray(store.weeklyReviews)) store.weeklyReviews = [];
+  const idx = store.weeklyReviews.findIndex(r => r.weekEnd === range.end);
+  if (idx >= 0) store.weeklyReviews[idx] = review;
+  else store.weeklyReviews.push(review);
+  save();
+  closeWeeklyReviewModal();
+  renderPastWeeklyReviews();
+  alert('✓ 今週の振り返りを保存しました。お疲れさまです！');
+}
+
+function renderPastWeeklyReviews() {
+  const el = document.getElementById('wrPastList');
+  if (!el) return;
+  const list = (store.weeklyReviews || []).slice().sort((a, b) => (b.weekEnd || '').localeCompare(a.weekEnd || ''));
+  if (list.length === 0) {
+    el.innerHTML = '<div style="color:var(--text-sub);">まだ振り返りの記録はありません。</div>';
+    return;
+  }
+  el.innerHTML = list.slice(0, 10).map(r => {
+    const learn = r.learning ? ' — ' + escapeHtml(r.learning.substring(0, 60)) : '';
+    return `<div style="padding:4px 0; border-bottom:1px dashed #f1f5f9;">${escapeHtml(r.weekStart)}〜${escapeHtml(r.weekEnd)} (${r.completedCount || 0}件完了)${learn}</div>`;
+  }).join('');
+}
+
+// ========== Time Tracking ==========
+// Stop any dangling active sessions older than 12 hours (crash recovery)
+function reconcileDanglingTimers() {
+  const MAX_ACTIVE_MS = 12 * 60 * 60 * 1000;
+  let changed = false;
+  (store.tasks || []).forEach(t => {
+    if (!t.activeStart) return;
+    const start = new Date(t.activeStart).getTime();
+    if (isNaN(start) || Date.now() - start > MAX_ACTIVE_MS) {
+      t.activeStart = null;
+      changed = true;
+    }
+  });
+  if (changed) save();
+}
+
+function startTaskTimer(id) {
+  ensureTaskStore();
+  // Stop any other running timer first (only 1 active at a time)
+  (store.tasks || []).forEach(t => {
+    if (t.id !== id && t.activeStart) commitTimeEntry(t);
+  });
+  const t = (store.tasks || []).find(x => x.id === id);
+  if (!t) return;
+  t.activeStart = new Date().toISOString();
+  if (!Array.isArray(t.timeEntries)) t.timeEntries = [];
+  save();
+  renderTaskTable();
+  renderFocusBar();
+  renderClientSummary();
+}
+
+function stopTaskTimer(id) {
+  ensureTaskStore();
+  const t = (store.tasks || []).find(x => x.id === id);
+  if (!t) return;
+  commitTimeEntry(t);
+  save();
+  renderTaskTable();
+  renderFocusBar();
+  renderClientSummary();
+  renderInsights();
+}
+
+function commitTimeEntry(t) {
+  if (!t || !t.activeStart) return;
+  const start = new Date(t.activeStart);
+  const end = new Date();
+  const minutes = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 60000));
+  if (minutes > 0) {
+    if (!Array.isArray(t.timeEntries)) t.timeEntries = [];
+    t.timeEntries.push({ start: start.toISOString(), end: end.toISOString(), minutes });
+  }
+  t.activeStart = null;
+}
+
+function toggleTaskTimer(id) {
+  const t = (store.tasks || []).find(x => x.id === id);
+  if (!t) return;
+  if (t.activeStart) stopTaskTimer(id);
+  else startTaskTimer(id);
+}
+
+// Heartbeat: update focus bar + running row every 15 seconds
+let _focusTimerInterval = null;
+function startFocusBarHeartbeat() {
+  if (_focusTimerInterval) return;
+  _focusTimerInterval = setInterval(() => {
+    const hasActive = (store.tasks || []).some(t => t.activeStart);
+    if (hasActive && currentTab === 'tasks') {
+      renderFocusBar();
+      // Update just the running row(s) time display without full rerender
+      (store.tasks || []).forEach(t => {
+        if (!t.activeStart) return;
+        const row = document.querySelector('tr[data-task-id="' + (typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(t.id) : t.id) + '"] .time-display');
+        if (row) row.innerHTML = buildTimeDisplayHTML(t);
+      });
+    }
+  }, 15000);
+}
+
+function buildTimeDisplayHTML(t) {
+  const actual = totalTrackedMinutes(t);
+  const est = t.estimatedMinutes;
+  const running = !!t.activeStart;
+  const over = est && actual > est;
+  const cls = ['time-display'];
+  if (over) cls.push('over');
+  let html = '<span class="' + cls.join(' ') + '">';
+  if (running) html += '⏱ ';
+  if (actual > 0 || running) {
+    html += '<span class="actual">' + formatMinutes(actual) + '</span>';
+  } else {
+    html += '<span style="opacity:0.4;">—</span>';
+  }
+  if (est) html += '<span class="sep"> / </span><span class="estimate">' + formatMinutes(est) + '</span>';
+  html += '</span>';
+  return html;
+}
+
+// Focus bar: sum of today's tracked minutes
+function renderFocusBar() {
+  const el = document.getElementById('focusToday');
+  const sub = document.getElementById('focusTodaySub');
+  const box = document.getElementById('focusRunningBox');
+  const txt = document.getElementById('focusRunningText');
+  if (!el) return;
+  const today = todayStr();
+  const tasks = store.tasks || [];
+  let todayTotal = 0;
+  tasks.forEach(t => { todayTotal += minutesOnDate(t, today); });
+  el.textContent = formatMinutes(todayTotal) === '—' ? '0m' : formatMinutes(todayTotal);
+
+  const active = tasks.find(t => t.activeStart);
+  if (active) {
+    if (box) box.style.display = '';
+    if (txt) txt.textContent = '計測中: ' + (active.content || '(無題)');
+    if (sub) sub.textContent = '1件計測中';
+  } else {
+    if (box) box.style.display = 'none';
+    if (sub) {
+      if (todayTotal === 0) sub.textContent = 'タスクを開始してください';
+      else sub.textContent = '計測停止中';
+    }
+  }
+}
+
 // ========== Task Rendering ==========
 function renderTaskView() {
   ensureTaskStore();
   populateTaskFormDropdowns();
   populateTaskFilterDropdowns();
   renderTaskKPIs();
+  renderFocusBar();
   renderClientSummary();
   renderTaskTable();
+  renderInsights();
   renderArchivedTasks();
+  renderPastWeeklyReviews();
 }
 
 // ===== Client Summary =====
@@ -3899,13 +4699,18 @@ function compareTasksByField(a, b, field) {
     case 'recurring':
       av = recurringLabel(a.recurring); bv = recurringLabel(b.recurring);
       return av.localeCompare(bv, 'ja') * dir;
+    case 'time': {
+      const ac = totalTrackedMinutes(a);
+      const bc = totalTrackedMinutes(b);
+      return (ac - bc) * dir;
+    }
     default:
       return 0;
   }
 }
 
 function updateSortIndicators() {
-  ['category','assignee','client','store','content','dueDate','status','recurring'].forEach(f => {
+  ['category','assignee','client','store','content','dueDate','status','recurring','time'].forEach(f => {
     const el = document.getElementById('sortInd_' + f);
     if (!el) return;
     if (f === taskSortField) {
@@ -3955,7 +4760,7 @@ function renderTaskTable() {
   });
 
   if (tasks.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="12" class="empty-state">タスクがありません。上のフォームから追加してください。</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="empty-state">タスクがありません。上のフォームから追加してください。</td></tr>';
     return;
   }
 
@@ -3988,6 +4793,10 @@ function renderTaskTable() {
     const storeBadge = t.store
       ? `<span class="category-badge" style="background:${storeColor};color:${textColorForBg(storeColor)}">${escapeHtml(t.store)}</span>`
       : '<span style="color:var(--text-sub); font-size:11px;">—</span>';
+    const timerRunning = !!t.activeStart;
+    const timerIcon = timerRunning ? '⏸' : '▶';
+    const timerClass = timerRunning ? 'timer-btn running' : 'timer-btn';
+    const timerTitle = timerRunning ? '計測を停止' : '計測を開始';
     tr.innerHTML = `
       <td>${alertIcon}</td>
       <td>${catBadge}</td>
@@ -4001,6 +4810,10 @@ function renderTaskTable() {
           ${statusOptions}
         </select>
       </td>
+      <td class="time-cell">
+        ${buildTimeDisplayHTML(t)}
+        <button type="button" class="${timerClass}" title="${timerTitle}" onclick="toggleTaskTimer('${escapeAttr(t.id)}')">${timerIcon}</button>
+      </td>
       <td style="font-size:11px; color:var(--text-sub); white-space:nowrap;">${escapeHtml(recurringLabel(t.recurring))}</td>
       <td>${urlCell}</td>
       <td style="max-width:240px; white-space:normal; font-size:12px;">${escapeHtml(t.comment || '')}</td>
@@ -4013,6 +4826,141 @@ function renderTaskTable() {
     `;
     tbody.appendChild(tr);
   });
+}
+
+// ========== Productivity Insights ==========
+function renderInsights() {
+  renderClientHourly();
+  renderHeatmap();
+}
+
+// C1: クライアント別 時給換算
+function renderClientHourly() {
+  const el = document.getElementById('clientHourlyList');
+  if (!el) return;
+
+  // Aggregate total tracked minutes per client from tasks (active + archived)
+  const hoursByClient = {};
+  const allTasks = (store.tasks || []).concat(store.archivedTasks || []);
+  allTasks.forEach(t => {
+    const client = t.client || '';
+    if (!client) return;
+    const mins = committedMinutes(t) + currentElapsedMinutes(t);
+    hoursByClient[client] = (hoursByClient[client] || 0) + mins;
+  });
+
+  // Aggregate total amount per client from all deals (all FY)
+  const amountByClient = {};
+  Object.keys(store.data || {}).forEach(fy => {
+    const deals = (store.data[fy] && store.data[fy].deals) || [];
+    deals.forEach(d => {
+      const name = (d.client || '').trim();
+      if (!name) return;
+      amountByClient[name] = (amountByClient[name] || 0) + (Number(d.amount) || 0);
+    });
+  });
+
+  // Merge keys from both sources
+  const allClients = new Set([...Object.keys(hoursByClient), ...Object.keys(amountByClient)]);
+  if (allClients.size === 0) {
+    el.innerHTML = '<div style="color:var(--text-sub); font-size:12px; padding:12px;">タスクの時間計測か、案件データを入れると表示されます。</div>';
+    return;
+  }
+
+  // Build rows: { name, amount, minutes, rate }
+  const rows = Array.from(allClients).map(name => {
+    const minutes = hoursByClient[name] || 0;
+    const amount = amountByClient[name] || 0;
+    const hours = minutes / 60;
+    const rate = hours > 0 ? amount / hours : 0;
+    return { name, amount, minutes, hours, rate };
+  });
+
+  // Sort by rate desc (highest rate first), then by amount desc
+  rows.sort((a, b) => (b.rate - a.rate) || (b.amount - a.amount));
+
+  let html = '<table class="insights-table"><thead><tr>' +
+             '<th>クライアント</th>' +
+             '<th class="num">売上</th>' +
+             '<th class="num">実働</th>' +
+             '<th class="num">時給換算</th>' +
+             '</tr></thead><tbody>';
+  rows.forEach(r => {
+    const rateStr = r.rate > 0 ? '¥' + Math.round(r.rate).toLocaleString('ja-JP') + '/h' : '—';
+    const rateClass = r.rate >= 8000 ? 'rate-good' :
+                      r.rate >= 4000 ? 'rate-mid'  :
+                      r.rate > 0     ? 'rate-low'  : '';
+    const hoursStr = r.minutes > 0 ? formatMinutes(r.minutes) : '—';
+    const amountStr = r.amount > 0 ? '¥' + Math.round(r.amount).toLocaleString('ja-JP') : '—';
+    html += `<tr>
+      <td>${escapeHtml(r.name)}</td>
+      <td class="num">${amountStr}</td>
+      <td class="num">${hoursStr}</td>
+      <td class="num ${rateClass}">${rateStr}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  html += '<div style="font-size:10px; color:var(--text-sub); margin-top:8px;">時給 ≥ 8,000円=緑 / ≥ 4,000円=橙 / それ未満=赤。タスクの「時間計測」と案件の「契約金額」から自動算出。</div>';
+  el.innerHTML = html;
+}
+
+// E3: 曜日×時間帯 生産性ヒートマップ (完了タスクの時刻を集計)
+function renderHeatmap() {
+  const el = document.getElementById('heatmapContainer');
+  if (!el) return;
+
+  // Count completed tasks by (dayOfWeek, hour) across ALL data (active + archived)
+  const grid = Array.from({length: 7}, () => new Array(24).fill(0));
+  const allTasks = (store.tasks || []).concat(store.archivedTasks || []);
+  allTasks.forEach(t => {
+    if (!t.completedAt) return;
+    const d = new Date(t.completedAt);
+    if (isNaN(d.getTime())) return;
+    const day = d.getDay(); // 0=Sun
+    const hour = d.getHours();
+    grid[day][hour]++;
+  });
+
+  // Also count time entries for a more granular heatmap
+  allTasks.forEach(t => {
+    (t.timeEntries || []).forEach(e => {
+      if (!e.start) return;
+      const d = new Date(e.start);
+      if (isNaN(d.getTime())) return;
+      grid[d.getDay()][d.getHours()]++;
+    });
+  });
+
+  // Find max for scaling
+  let max = 0;
+  grid.forEach(row => row.forEach(v => { if (v > max) max = v; }));
+
+  const dayLabels = ['日','月','火','水','木','金','土'];
+  // Build as an HTML table for clarity and compact display
+  let html = '<div class="heatmap-grid">';
+  // Header row: empty cell + hour labels
+  html += '<div></div>';
+  for (let h = 0; h < 24; h++) {
+    html += `<div class="heatmap-label-hour">${h % 3 === 0 ? h : ''}</div>`;
+  }
+  // 7 day rows
+  for (let day = 0; day < 7; day++) {
+    html += `<div class="heatmap-label-day">${dayLabels[day]}</div>`;
+    for (let h = 0; h < 24; h++) {
+      const v = grid[day][h];
+      const alpha = max > 0 ? v / max : 0;
+      const bg = v === 0 ? '#f3f4f6' : `rgba(37,99,235,${0.15 + alpha * 0.85})`;
+      const title = v > 0 ? `${dayLabels[day]} ${h}時: ${v}件` : '';
+      html += `<div class="heatmap-cell" style="background:${bg};" title="${title}"></div>`;
+    }
+  }
+  html += '</div>';
+
+  if (max === 0) {
+    el.innerHTML = '<div style="color:var(--text-sub); font-size:12px; padding:12px;">タスクを完了したり時間計測すると、ここに活動パターンが表示されます。</div>';
+  } else {
+    el.innerHTML = html;
+  }
 }
 
 function renderArchivedTasks() {
@@ -4145,6 +5093,9 @@ function saveTask() {
     }
   }
 
+  const estimateRaw = document.getElementById('t_estimate').value;
+  const estimatedMinutes = parseTimeInput(estimateRaw);
+
   const newId = existing ? existing.id : (String(Date.now()) + Math.random().toString(36).slice(2, 8));
   const task = {
     id: newId,
@@ -4158,6 +5109,10 @@ function saveTask() {
     url: document.getElementById('t_url').value.trim(),
     comment: document.getElementById('t_comment').value.trim(),
     recurring: recurring,
+    estimatedMinutes: estimatedMinutes,
+    // Preserve existing time entries & active session on edit
+    timeEntries: existing && Array.isArray(existing.timeEntries) ? existing.timeEntries : [],
+    activeStart: existing ? (existing.activeStart || null) : null,
     createdAt: existing && existing.createdAt ? existing.createdAt : now,
     completedAt: null
   };
@@ -4248,6 +5203,7 @@ function editTask(id) {
   setVal('t_content',  t.content  || '');
   setVal('t_dueDate',  t.dueDate  || '');
   setVal('t_status',   t.status   || '');
+  setVal('t_estimate', t.estimatedMinutes != null ? String(t.estimatedMinutes) : '');
   setVal('t_url',      t.url      || '');
   setVal('t_comment',  t.comment  || '');
 
@@ -4326,6 +5282,7 @@ function resetTaskForm() {
   setVal('t_content',  '');
   setVal('t_dueDate',  '');
   setVal('t_status',   statuses[0] || '');
+  setVal('t_estimate', '');
   setVal('t_url',      '');
   setVal('t_comment',  '');
   setVal('t_recurring_type', '');
@@ -4831,7 +5788,7 @@ function removeAssignee(i) {
 
 // ========== Task CSV ==========
 function buildTasksCSV(taskList) {
-  const headers = ['カテゴリ','担当','クライアント','ストア','タスク内容','期日','ステータス','URL','コメント','繰り返し種別','繰り返し曜日/日','作成日時','完了日時'];
+  const headers = ['カテゴリ','担当','クライアント','ストア','タスク内容','期日','ステータス','見積分','実績分','URL','コメント','繰り返し種別','繰り返し曜日/日','作成日時','完了日時'];
   const rows = (taskList || []).map(t => [
     t.category || '',
     t.assignee || '',
@@ -4840,6 +5797,8 @@ function buildTasksCSV(taskList) {
     t.content  || '',
     t.dueDate  || '',
     t.status   || '',
+    t.estimatedMinutes != null ? t.estimatedMinutes : '',
+    committedMinutes(t),
     t.url      || '',
     t.comment  || '',
     t.recurring ? t.recurring.type : '',
@@ -4859,8 +5818,8 @@ function exportArchivedTasksCSV() {
 }
 
 function downloadTasksTemplate() {
-  const headers = ['カテゴリ','担当','クライアント','ストア','タスク内容','期日','ステータス','URL','コメント','繰り返し種別','繰り返し曜日/日','作成日時','完了日時'];
-  const sample = ['自社EC','','','','例）新商品の仕入れ発注','2026-04-20','未着手','https://example.com','週1で在庫確認','weekly','1','',''];
+  const headers = ['カテゴリ','担当','クライアント','ストア','タスク内容','期日','ステータス','見積分','実績分','URL','コメント','繰り返し種別','繰り返し曜日/日','作成日時','完了日時'];
+  const sample = ['自社EC','','','','例）新商品の仕入れ発注','2026-04-20','未着手','60','','https://example.com','週1で在庫確認','weekly','1','',''];
   downloadFile(toCSV([headers, sample]), `タスクテンプレート_${dateStr()}.csv`);
 }
 
@@ -4891,12 +5850,14 @@ function importTasksCSV(text, replace) {
   const rows = parseCSV(text);
   if (rows.length < 2) { alert('データ行がありません'); return; }
   ensureTaskStore();
-  // Detect CSV format by header columns. Presence of each lookup column is
-  // independent so we can read any historical layout (v1..v4).
+  // Detect CSV format by header columns. Presence of each column is
+  // independent so we can read any historical layout (v1..v5).
   const header = rows[0].map(c => (c || '').trim());
   const hasAssignee = header.includes('担当');
   const hasClient   = header.includes('クライアント');
   const hasStore    = header.includes('ストア');
+  const hasEstimate = header.includes('見積分');
+  const hasActual   = header.includes('実績分');
   const imported = [];
   for (let i = 1; i < rows.length; i++) {
     const parts = rows[i];
@@ -4910,6 +5871,10 @@ function importTasksCSV(text, replace) {
     if (!content) continue;
     const dueDate  = (parts[idx++] || '').trim();
     const status   = (parts[idx++] || '').trim();
+    const estRaw   = hasEstimate ? (parts[idx++] || '').trim() : '';
+    const actualRaw = hasActual   ? (parts[idx++] || '').trim() : '';
+    const estimatedMinutes = estRaw ? (Number(estRaw) || null) : null;
+    const actualMinutes = actualRaw ? (Number(actualRaw) || 0) : 0;
     const url      = (parts[idx++] || '').trim();
     const comment  = (parts[idx++] || '').trim();
     const rType    = (parts[idx++] || '').trim();
@@ -4923,6 +5888,17 @@ function importTasksCSV(text, replace) {
         recurring.day = Number(rDay) || 1;
       }
     }
+    // Build time entries from imported actual minutes (single synthetic entry)
+    const timeEntries = [];
+    if (actualMinutes > 0) {
+      const endT = new Date();
+      const startT = new Date(endT.getTime() - actualMinutes * 60000);
+      timeEntries.push({
+        start: startT.toISOString(),
+        end: endT.toISOString(),
+        minutes: actualMinutes
+      });
+    }
     imported.push({
       id: String(Date.now()) + i + Math.random().toString(36).slice(2, 6),
       category: category,
@@ -4932,6 +5908,9 @@ function importTasksCSV(text, replace) {
       content:  content,
       dueDate:  dueDate,
       status:   status,
+      estimatedMinutes: estimatedMinutes,
+      timeEntries: timeEntries,
+      activeStart: null,
       url:      url,
       comment:  comment,
       recurring: recurring,
@@ -4956,6 +5935,7 @@ load();
 render();
 renderTaskView();
 updateDriveStatusUI();
+startFocusBarHeartbeat();
 // ページ読み込み後に自動バックアップチェック（3秒後）
 setTimeout(checkAutoBackup, 3000);
 // 毎分、繰り返し＆アラート状態を更新

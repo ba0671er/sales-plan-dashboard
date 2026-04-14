@@ -124,6 +124,7 @@ function cleanOldBackups(folder) {
 // 【機能B】LINE 朝のタスク通知
 // ==============================================================
 // 時間トリガーから呼ばれるメイン関数
+// 金曜日の朝は「今週の振り返りが未入力」の場合はリマインダーを追記
 function sendDailyTaskNotification() {
   const store = loadLatestStore();
   if (!store) {
@@ -135,8 +136,31 @@ function sendDailyTaskNotification() {
     return;
   }
   const todayTasks = getTasksDueToday(store);
-  const message = buildLineMessage(todayTasks);
+  let message = buildLineMessage(todayTasks);
+
+  // 金曜日なら今週の振り返りが未入力かチェック
+  const now = new Date();
+  if (now.getDay() === 5) { // Friday
+    const reminderNeeded = !isThisWeekReviewed(store);
+    if (reminderNeeded) {
+      message = '📝 今週の振り返りがまだ未入力です。金曜の終わりまでに「今週の振り返り」を記入しましょう！\n\n' + message;
+    }
+  }
+
   sendLineMessage(message);
+}
+
+// 現在の週（月〜日）の振り返りが store に存在するか
+function isThisWeekReviewed(store) {
+  if (!store || !Array.isArray(store.weeklyReviews)) return false;
+  const now = new Date();
+  // 日曜までの最終日をYYYY-MM-DDで
+  const day = now.getDay(); // 0=Sun..6=Sat
+  const diffToSun = (day === 0 ? 0 : 7 - day);
+  const sunday = new Date(now);
+  sunday.setDate(sunday.getDate() + diffToSun);
+  const weekEnd = Utilities.formatDate(sunday, TZ, 'yyyy-MM-dd');
+  return store.weeklyReviews.some(function(r) { return r && r.weekEnd === weekEnd; });
 }
 
 // 手動実行用: 今日のタスク通知をテスト送信
