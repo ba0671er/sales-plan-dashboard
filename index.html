@@ -1471,12 +1471,17 @@
             <select id="t_category" onchange="onTaskFormSelectChange('t_category','category')"></select>
           </div>
           <div class="form-field">
+            <label>担当</label>
+            <select id="t_assignee" onchange="onTaskFormSelectChange('t_assignee','assignee')"></select>
+          </div>
+          <div class="form-field">
             <label>クライアント</label>
             <select id="t_client" onchange="onTaskFormSelectChange('t_client','client')"></select>
           </div>
           <div class="form-field">
-            <label>ストア</label>
-            <select id="t_store" onchange="onTaskFormSelectChange('t_store','store')"></select>
+            <label>ストア <span style="font-weight:400; color:var(--text-sub);">（入力で予測）</span></label>
+            <input type="text" id="t_store" list="storeSuggestions" placeholder="ストア名を入力または選択" autocomplete="off" />
+            <datalist id="storeSuggestions"></datalist>
           </div>
           <div class="form-field">
             <label>期日</label>
@@ -1537,15 +1542,19 @@
             <label>カテゴリで絞込</label>
             <select id="taskFilterCategory" onchange="renderTaskTable()"></select>
           </div>
-          <div class="form-field" style="min-width:160px;">
+          <div class="form-field" style="min-width:140px;">
+            <label>担当で絞込</label>
+            <select id="taskFilterAssignee" onchange="renderTaskTable()"></select>
+          </div>
+          <div class="form-field" style="min-width:140px;">
             <label>クライアントで絞込</label>
             <select id="taskFilterClient" onchange="renderTaskTable()"></select>
           </div>
-          <div class="form-field" style="min-width:160px;">
+          <div class="form-field" style="min-width:140px;">
             <label>ストアで絞込</label>
             <select id="taskFilterStore" onchange="renderTaskTable()"></select>
           </div>
-          <div class="form-field" style="min-width:160px;">
+          <div class="form-field" style="min-width:140px;">
             <label>ステータスで絞込</label>
             <select id="taskFilterStatus" onchange="renderTaskTable()"></select>
           </div>
@@ -1605,6 +1614,7 @@
               <tr>
                 <th style="width:28px;"></th>
                 <th class="sortable" onclick="sortTasksBy('category')">カテゴリ<span class="sort-indicator" id="sortInd_category"></span></th>
+                <th class="sortable" onclick="sortTasksBy('assignee')">担当<span class="sort-indicator" id="sortInd_assignee"></span></th>
                 <th class="sortable" onclick="sortTasksBy('client')">クライアント<span class="sort-indicator" id="sortInd_client"></span></th>
                 <th class="sortable" onclick="sortTasksBy('store')">ストア<span class="sort-indicator" id="sortInd_store"></span></th>
                 <th class="sortable" onclick="sortTasksBy('content')">タスク内容<span class="sort-indicator" id="sortInd_content"></span></th>
@@ -1636,6 +1646,7 @@
               <thead>
                 <tr>
                   <th>カテゴリ</th>
+                  <th>担当</th>
                   <th>クライアント</th>
                   <th>ストア</th>
                   <th>タスク内容</th>
@@ -1704,11 +1715,21 @@
 
       <div class="settings-section">
         <h4>ストア <span style="font-size:11px; color:var(--text-sub); font-weight:400;">（ドラッグで並び替え可）</span></h4>
-        <p class="settings-hint">タスクに紐付けるストア一覧を管理します（クライアント毎の複数ストア運用にどうぞ）。</p>
+        <p class="settings-hint">タスクに紐付けるストア一覧を管理します（クライアント毎の複数ストア運用にどうぞ）。タスクフォームでは入力中に予測候補が表示されます。</p>
         <div id="settingStoresList" class="settings-list"></div>
         <div class="settings-add">
           <input type="text" id="newStoreInput" placeholder="新しいストア名" />
           <button type="button" class="btn-primary" onclick="addStore()">追加</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>担当 <span style="font-size:11px; color:var(--text-sub); font-weight:400;">（ドラッグで並び替え可）</span></h4>
+        <p class="settings-hint">タスクを担当するメンバー一覧を管理します。</p>
+        <div id="settingAssigneesList" class="settings-list"></div>
+        <div class="settings-add">
+          <input type="text" id="newAssigneeInput" placeholder="新しい担当者名" />
+          <button type="button" class="btn-primary" onclick="addAssignee()">追加</button>
         </div>
       </div>
 
@@ -1781,10 +1802,11 @@ const DEFAULT_TASK_STATUSES = [
   { name: '完了',    color: '#bbf7d0', completed: true }
 ];
 // Pastel color palettes (Tailwind 200-level tones)
-const CAT_PALETTE    = ['#bae6fd','#ddd6fe','#fbcfe8','#e5e7eb','#fde68a','#bbf7d0','#fecaca','#a5f3fc','#fed7aa','#c7d2fe'];
-const STATUS_PALETTE = ['#e5e7eb','#bfdbfe','#fed7aa','#ddd6fe','#bbf7d0','#bae6fd','#fbcfe8','#fecaca','#a5f3fc','#fde68a'];
-const CLIENT_PALETTE = ['#c7d2fe','#99f6e4','#fed7aa','#d9f99d','#bae6fd','#f5d0fe','#fef3c7','#ddd6fe','#fbcfe8','#bbf7d0'];
-const STORE_PALETTE  = ['#fecdd3','#d9f99d','#fef3c7','#e9d5ff','#a5f3fc','#fed7aa','#99f6e4','#c7d2fe','#fbcfe8','#bbf7d0'];
+const CAT_PALETTE      = ['#bae6fd','#ddd6fe','#fbcfe8','#e5e7eb','#fde68a','#bbf7d0','#fecaca','#a5f3fc','#fed7aa','#c7d2fe'];
+const STATUS_PALETTE   = ['#e5e7eb','#bfdbfe','#fed7aa','#ddd6fe','#bbf7d0','#bae6fd','#fbcfe8','#fecaca','#a5f3fc','#fde68a'];
+const CLIENT_PALETTE   = ['#c7d2fe','#99f6e4','#fed7aa','#d9f99d','#bae6fd','#f5d0fe','#fef3c7','#ddd6fe','#fbcfe8','#bbf7d0'];
+const STORE_PALETTE    = ['#fecdd3','#d9f99d','#fef3c7','#e9d5ff','#a5f3fc','#fed7aa','#99f6e4','#c7d2fe','#fbcfe8','#bbf7d0'];
+const ASSIGNEE_PALETTE = ['#fef3c7','#bbf7d0','#bae6fd','#fbcfe8','#ddd6fe','#fed7aa','#a5f3fc','#fecaca','#c7d2fe','#d9f99d'];
 const WEEKDAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
 
 // Task sort state (column-header sorting)
@@ -1842,15 +1864,23 @@ function ensureTaskStore() {
     if (typeof c === 'string') return { name: c, color: STORE_PALETTE[i % STORE_PALETTE.length] };
     return { name: c.name || '未設定', color: c.color || STORE_PALETTE[i % STORE_PALETTE.length] };
   });
+  // Assignees (array of {name, color})
+  if (!Array.isArray(s.assignees)) s.assignees = [];
+  s.assignees = s.assignees.map((c, i) => {
+    if (typeof c === 'string') return { name: c, color: ASSIGNEE_PALETTE[i % ASSIGNEE_PALETTE.length] };
+    return { name: c.name || '未設定', color: c.color || ASSIGNEE_PALETTE[i % ASSIGNEE_PALETTE.length] };
+  });
 
-  // Normalize existing tasks to ensure client/store fields exist
+  // Normalize existing tasks to ensure client/store/assignee fields exist
   store.tasks.forEach(t => {
-    if (typeof t.client === 'undefined') t.client = '';
-    if (typeof t.store  === 'undefined') t.store  = '';
+    if (typeof t.client   === 'undefined') t.client   = '';
+    if (typeof t.store    === 'undefined') t.store    = '';
+    if (typeof t.assignee === 'undefined') t.assignee = '';
   });
   store.archivedTasks.forEach(t => {
-    if (typeof t.client === 'undefined') t.client = '';
-    if (typeof t.store  === 'undefined') t.store  = '';
+    if (typeof t.client   === 'undefined') t.client   = '';
+    if (typeof t.store    === 'undefined') t.store    = '';
+    if (typeof t.assignee === 'undefined') t.assignee = '';
   });
 }
 
@@ -1859,6 +1889,7 @@ function getTaskCategories() { return (store.taskSettings && store.taskSettings.
 function getTaskStatuses()   { return (store.taskSettings && store.taskSettings.statuses) || []; }
 function getTaskClients()    { return (store.taskSettings && store.taskSettings.clients) || []; }
 function getTaskStores()     { return (store.taskSettings && store.taskSettings.stores) || []; }
+function getTaskAssignees()  { return (store.taskSettings && store.taskSettings.assignees) || []; }
 
 function getCategoryColor(name) {
   const c = getTaskCategories().find(x => x.name === name);
@@ -1874,6 +1905,10 @@ function getClientColor(name) {
 }
 function getStoreColor(name) {
   const c = getTaskStores().find(x => x.name === name);
+  return c ? c.color : '#9ca3af';
+}
+function getAssigneeColor(name) {
+  const c = getTaskAssignees().find(x => x.name === name);
   return c ? c.color : '#9ca3af';
 }
 function isCompletedStatus(name) {
@@ -3304,30 +3339,46 @@ function populateSelect(el, values, currentVal, emptyLabel, addLabel) {
   el.dataset.lastValue = el.value;
 }
 
+// Populate an <datalist> with option values
+function populateDatalist(el, values) {
+  if (!el) return;
+  el.innerHTML = '';
+  values.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v;
+    el.appendChild(opt);
+  });
+}
+
 function populateTaskFormDropdowns() {
-  const cats     = getTaskCategories().map(c => c.name);
-  const statuses = getTaskStatuses().map(s => s.name);
-  const clients  = getTaskClients().map(c => c.name);
-  const stores   = getTaskStores().map(c => c.name);
+  const cats      = getTaskCategories().map(c => c.name);
+  const statuses  = getTaskStatuses().map(s => s.name);
+  const clients   = getTaskClients().map(c => c.name);
+  const stores    = getTaskStores().map(c => c.name);
+  const assignees = getTaskAssignees().map(c => c.name);
   populateSelect(document.getElementById('t_category'), cats, null, null, '新しいカテゴリを追加...');
   populateSelect(document.getElementById('t_status'),   statuses);
   populateSelect(document.getElementById('t_client'),   clients, null, '（クライアント未選択）', '新しいクライアントを追加...');
-  populateSelect(document.getElementById('t_store'),    stores,  null, '（ストア未選択）',      '新しいストアを追加...');
+  populateSelect(document.getElementById('t_assignee'), assignees, null, '（担当未選択）',       '新しい担当者を追加...');
+  // Store uses <input list="storeSuggestions"> for type-ahead autocomplete
+  populateDatalist(document.getElementById('storeSuggestions'), stores);
 }
 
 function populateTaskFilterDropdowns() {
-  const cats     = getTaskCategories().map(c => c.name);
-  const statuses = getTaskStatuses().map(s => s.name);
-  const clients  = getTaskClients().map(c => c.name);
-  const stores   = getTaskStores().map(c => c.name);
+  const cats      = getTaskCategories().map(c => c.name);
+  const statuses  = getTaskStatuses().map(s => s.name);
+  const clients   = getTaskClients().map(c => c.name);
+  const stores    = getTaskStores().map(c => c.name);
+  const assignees = getTaskAssignees().map(c => c.name);
   populateSelect(document.getElementById('taskFilterCategory'), cats, null, 'すべて');
   populateSelect(document.getElementById('taskFilterStatus'),   statuses, null, 'すべて');
   populateSelect(document.getElementById('taskFilterClient'),   clients, null, 'すべて');
   populateSelect(document.getElementById('taskFilterStore'),    stores,  null, 'すべて');
+  populateSelect(document.getElementById('taskFilterAssignee'), assignees, null, 'すべて');
 }
 
 function clearTaskFilters() {
-  ['taskFilterCategory','taskFilterStatus','taskFilterClient','taskFilterStore'].forEach(id => {
+  ['taskFilterCategory','taskFilterStatus','taskFilterClient','taskFilterStore','taskFilterAssignee'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -3336,7 +3387,7 @@ function clearTaskFilters() {
   renderTaskTable();
 }
 
-// Inline add-new for task form selects (category / client / store)
+// Inline add-new for task form selects (category / client / store / assignee)
 function onTaskFormSelectChange(selectId, kind) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
@@ -3344,12 +3395,13 @@ function onTaskFormSelectChange(selectId, kind) {
     sel.dataset.lastValue = sel.value;
     return;
   }
-  const labelMap  = { category: 'カテゴリ', client: 'クライアント', store: 'ストア' };
-  const paletteMap = { category: CAT_PALETTE, client: CLIENT_PALETTE, store: STORE_PALETTE };
+  const labelMap   = { category: 'カテゴリ', client: 'クライアント', store: 'ストア', assignee: '担当者' };
+  const paletteMap = { category: CAT_PALETTE, client: CLIENT_PALETTE, store: STORE_PALETTE, assignee: ASSIGNEE_PALETTE };
   const listMap = {
     category: () => store.taskSettings.categories,
     client:   () => store.taskSettings.clients,
-    store:    () => store.taskSettings.stores
+    store:    () => store.taskSettings.stores,
+    assignee: () => store.taskSettings.assignees
   };
   const label = labelMap[kind] || '項目';
   const name = (prompt(`新しい${label}名を入力してください`) || '').trim();
@@ -3564,6 +3616,9 @@ function compareTasksByField(a, b, field) {
     case 'store':
       av = a.store || ''; bv = b.store || '';
       return av.localeCompare(bv, 'ja') * dir;
+    case 'assignee':
+      av = a.assignee || ''; bv = b.assignee || '';
+      return av.localeCompare(bv, 'ja') * dir;
     case 'content':
       av = a.content || ''; bv = b.content || '';
       return av.localeCompare(bv, 'ja') * dir;
@@ -3584,7 +3639,7 @@ function compareTasksByField(a, b, field) {
 }
 
 function updateSortIndicators() {
-  ['category','client','store','content','dueDate','status','recurring'].forEach(f => {
+  ['category','assignee','client','store','content','dueDate','status','recurring'].forEach(f => {
     const el = document.getElementById('sortInd_' + f);
     if (!el) return;
     if (f === taskSortField) {
@@ -3603,17 +3658,19 @@ function renderTaskTable() {
   tbody.innerHTML = '';
   updateSortIndicators();
 
-  const filterCat    = (document.getElementById('taskFilterCategory') || {}).value || '';
-  const filterClient = (document.getElementById('taskFilterClient')   || {}).value || '';
-  const filterStore  = (document.getElementById('taskFilterStore')    || {}).value || '';
-  const filterStatus = (document.getElementById('taskFilterStatus')   || {}).value || '';
+  const filterCat      = (document.getElementById('taskFilterCategory') || {}).value || '';
+  const filterClient   = (document.getElementById('taskFilterClient')   || {}).value || '';
+  const filterStore    = (document.getElementById('taskFilterStore')    || {}).value || '';
+  const filterAssignee = (document.getElementById('taskFilterAssignee') || {}).value || '';
+  const filterStatus   = (document.getElementById('taskFilterStatus')   || {}).value || '';
   const keyword = ((document.getElementById('taskFilterKeyword') || {}).value || '').toLowerCase().trim();
 
   let tasks = (store.tasks || []).slice();
-  if (filterCat)    tasks = tasks.filter(t => t.category === filterCat);
-  if (filterClient) tasks = tasks.filter(t => (t.client || '') === filterClient);
-  if (filterStore)  tasks = tasks.filter(t => (t.store  || '') === filterStore);
-  if (filterStatus) tasks = tasks.filter(t => t.status === filterStatus);
+  if (filterCat)      tasks = tasks.filter(t => t.category === filterCat);
+  if (filterClient)   tasks = tasks.filter(t => (t.client   || '') === filterClient);
+  if (filterStore)    tasks = tasks.filter(t => (t.store    || '') === filterStore);
+  if (filterAssignee) tasks = tasks.filter(t => (t.assignee || '') === filterAssignee);
+  if (filterStatus)   tasks = tasks.filter(t => t.status === filterStatus);
   if (keyword) {
     tasks = tasks.filter(t =>
       (t.content || '').toLowerCase().includes(keyword) ||
@@ -3632,7 +3689,7 @@ function renderTaskTable() {
   });
 
   if (tasks.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" class="empty-state">タスクがありません。上のフォームから追加してください。</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="empty-state">タスクがありません。上のフォームから追加してください。</td></tr>';
     return;
   }
 
@@ -3648,13 +3705,17 @@ function renderTaskTable() {
     const statusOptions = statuses.map(s =>
       `<option value="${escapeAttr(s.name)}"${s.name === t.status ? ' selected' : ''}>${escapeHtml(s.name)}</option>`
     ).join('');
-    const catColor = getCategoryColor(t.category);
-    const clientColor = t.client ? getClientColor(t.client) : '';
-    const storeColor  = t.store  ? getStoreColor(t.store)   : '';
-    const statusColor = getStatusColor(t.status);
+    const catColor      = getCategoryColor(t.category);
+    const clientColor   = t.client   ? getClientColor(t.client)     : '';
+    const storeColor    = t.store    ? getStoreColor(t.store)       : '';
+    const assigneeColor = t.assignee ? getAssigneeColor(t.assignee) : '';
+    const statusColor   = getStatusColor(t.status);
     const catBadge = t.category
       ? `<span class="category-badge" style="background:${catColor};color:${textColorForBg(catColor)}">${escapeHtml(t.category)}</span>`
       : '';
+    const assigneeBadge = t.assignee
+      ? `<span class="category-badge" style="background:${assigneeColor};color:${textColorForBg(assigneeColor)}">${escapeHtml(t.assignee)}</span>`
+      : '<span style="color:var(--text-sub); font-size:11px;">—</span>';
     const clientBadge = t.client
       ? `<span class="category-badge" style="background:${clientColor};color:${textColorForBg(clientColor)}">${escapeHtml(t.client)}</span>`
       : '<span style="color:var(--text-sub); font-size:11px;">—</span>';
@@ -3664,6 +3725,7 @@ function renderTaskTable() {
     tr.innerHTML = `
       <td>${alertIcon}</td>
       <td>${catBadge}</td>
+      <td>${assigneeBadge}</td>
       <td>${clientBadge}</td>
       <td>${storeBadge}</td>
       <td>${escapeHtml(t.content || '')}</td>
@@ -3696,19 +3758,23 @@ function renderArchivedTasks() {
   if (countLabel) countLabel.textContent = `（${archived.length}件）`;
   tbody.innerHTML = '';
   if (archived.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">アーカイブされたタスクはありません</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">アーカイブされたタスクはありません</td></tr>';
     return;
   }
   archived.forEach(t => {
     const tr = document.createElement('tr');
     const urlCell = t.url ? `<a class="task-url-link" href="${escapeAttr(t.url)}" target="_blank" rel="noopener">🔗 リンク</a>` : '';
     const completedStr = t.completedAt ? new Date(t.completedAt).toLocaleDateString('ja-JP') : '';
-    const catColor = getCategoryColor(t.category);
-    const clientColor = t.client ? getClientColor(t.client) : '';
-    const storeColor  = t.store  ? getStoreColor(t.store)   : '';
+    const catColor      = getCategoryColor(t.category);
+    const clientColor   = t.client   ? getClientColor(t.client)     : '';
+    const storeColor    = t.store    ? getStoreColor(t.store)       : '';
+    const assigneeColor = t.assignee ? getAssigneeColor(t.assignee) : '';
     const catBadge = t.category
       ? `<span class="category-badge" style="background:${catColor};color:${textColorForBg(catColor)}">${escapeHtml(t.category)}</span>`
       : '';
+    const assigneeBadge = t.assignee
+      ? `<span class="category-badge" style="background:${assigneeColor};color:${textColorForBg(assigneeColor)}">${escapeHtml(t.assignee)}</span>`
+      : '<span style="color:var(--text-sub); font-size:11px;">—</span>';
     const clientBadge = t.client
       ? `<span class="category-badge" style="background:${clientColor};color:${textColorForBg(clientColor)}">${escapeHtml(t.client)}</span>`
       : '<span style="color:var(--text-sub); font-size:11px;">—</span>';
@@ -3717,6 +3783,7 @@ function renderArchivedTasks() {
       : '<span style="color:var(--text-sub); font-size:11px;">—</span>';
     tr.innerHTML = `
       <td>${catBadge}</td>
+      <td>${assigneeBadge}</td>
       <td>${clientBadge}</td>
       <td>${storeBadge}</td>
       <td>${escapeHtml(t.content || '')}</td>
@@ -3801,12 +3868,24 @@ function saveTask() {
     return el.value === ADD_NEW_VALUE ? '' : (el.value || '');
   };
 
+  // Store is a free-text input with datalist autocomplete. If the user typed a
+  // new store name that's not in settings yet, auto-register it so it appears
+  // in future suggestions.
+  const storeValRaw = (document.getElementById('t_store').value || '').trim();
+  if (storeValRaw) {
+    const stores = getTaskStores();
+    if (!stores.some(x => x.name === storeValRaw)) {
+      stores.push({ name: storeValRaw, color: STORE_PALETTE[stores.length % STORE_PALETTE.length] });
+    }
+  }
+
   const newId = existing ? existing.id : (String(Date.now()) + Math.random().toString(36).slice(2, 8));
   const task = {
     id: newId,
     category: getSelectValue('t_category'),
+    assignee: getSelectValue('t_assignee'),
     client:   getSelectValue('t_client'),
-    store:    getSelectValue('t_store'),
+    store:    storeValRaw,
     content: content,
     dueDate: dueDate || '',
     status: status || '',
@@ -3863,8 +3942,8 @@ function editTask(id) {
   if (!t) { alert('タスクが見つかりませんでした'); return; }
   editingTaskId = id;
 
-  // If the task's category/status/client/store isn't in settings anymore, re-add it
-  // as an orphan entry so the <select> can display it correctly.
+  // If the task's category/status/client/store/assignee isn't in settings anymore,
+  // re-add it as an orphan entry so the <select> can display it correctly.
   const cats = getTaskCategories();
   if (t.category && !cats.some(c => c.name === t.category)) {
     cats.push({ name: t.category, color: '#9ca3af' });
@@ -3881,6 +3960,10 @@ function editTask(id) {
   if (t.store && !stores.some(c => c.name === t.store)) {
     stores.push({ name: t.store, color: '#9ca3af' });
   }
+  const assignees = getTaskAssignees();
+  if (t.assignee && !assignees.some(c => c.name === t.assignee)) {
+    assignees.push({ name: t.assignee, color: '#9ca3af' });
+  }
 
   // Re-populate dropdowns so the select has all needed options
   populateTaskFormDropdowns();
@@ -3893,6 +3976,7 @@ function editTask(id) {
     if (el.dataset) el.dataset.lastValue = el.value;
   };
   setVal('t_category', t.category || '');
+  setVal('t_assignee', t.assignee || '');
   setVal('t_client',   t.client   || '');
   setVal('t_store',    t.store    || '');
   setVal('t_content',  t.content  || '');
@@ -3970,6 +4054,7 @@ function resetTaskForm() {
     if (el.dataset) el.dataset.lastValue = el.value;
   };
   setVal('t_category', cats[0] || '');
+  setVal('t_assignee', '');
   setVal('t_client',   '');
   setVal('t_store',    '');
   setVal('t_content',  '');
@@ -4031,15 +4116,17 @@ function _getSettingsList(kind) {
     case 'status':   return store.taskSettings.statuses;
     case 'client':   return store.taskSettings.clients;
     case 'store':    return store.taskSettings.stores;
+    case 'assignee': return store.taskSettings.assignees;
     default: return null;
   }
 }
 
 function _rerenderSettingsFor(kind) {
   if (kind === 'category') renderCategoriesSettings();
-  else if (kind === 'status') renderStatusesSettings();
-  else if (kind === 'client') renderClientsSettings();
-  else if (kind === 'store')  renderStoresSettings();
+  else if (kind === 'status')   renderStatusesSettings();
+  else if (kind === 'client')   renderClientsSettings();
+  else if (kind === 'store')    renderStoresSettings();
+  else if (kind === 'assignee') renderAssigneesSettings();
 }
 
 function onSettingsDragStart(e, kind, index) {
@@ -4112,6 +4199,7 @@ function renderSettingsLists() {
   renderStatusesSettings();
   renderClientsSettings();
   renderStoresSettings();
+  renderAssigneesSettings();
 }
 
 // Build common drag handlers inline snippet for a settings row
@@ -4407,11 +4495,80 @@ function removeStore(i) {
   renderStoresSettings();
 }
 
+// Assignee CRUD
+function renderAssigneesSettings() {
+  const list = document.getElementById('settingAssigneesList');
+  if (!list) return;
+  list.innerHTML = '';
+  const assignees = getTaskAssignees();
+  if (assignees.length === 0) {
+    list.innerHTML = '<div style="color:var(--text-sub); font-size:12px; padding:8px;">まだ担当者が登録されていません。下の欄から追加してください。</div>';
+    return;
+  }
+  assignees.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'settings-item';
+    row.setAttribute('ondragover', 'onSettingsDragOver(event)');
+    row.setAttribute('ondragleave', 'onSettingsDragLeave(event)');
+    row.setAttribute('ondrop', `onSettingsDrop(event,'assignee',${i})`);
+    row.innerHTML = `
+      ${makeDragHandle('assignee', i)}
+      <input type="color" value="${escapeAttr(c.color)}" title="色を変更" onchange="updateAssigneeColor(${i}, this.value)" />
+      <input type="text" value="${escapeAttr(c.name)}" onchange="updateAssigneeName(${i}, this.value)" />
+      <button type="button" class="btn-remove" onclick="removeAssignee(${i})">削除</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function addAssignee() {
+  const input = document.getElementById('newAssigneeInput');
+  const name = (input.value || '').trim();
+  if (!name) { alert('担当者名を入力してください'); return; }
+  const assignees = getTaskAssignees();
+  if (assignees.some(c => c.name === name)) { alert('同じ名前の担当者が既にあります'); return; }
+  assignees.push({ name, color: ASSIGNEE_PALETTE[assignees.length % ASSIGNEE_PALETTE.length] });
+  save();
+  input.value = '';
+  renderAssigneesSettings();
+}
+
+function updateAssigneeName(i, value) {
+  const assignees = getTaskAssignees();
+  if (!assignees[i]) return;
+  const newName = (value || '').trim();
+  if (!newName) { alert('担当者名は空にできません'); renderAssigneesSettings(); return; }
+  if (assignees.some((c, idx) => idx !== i && c.name === newName)) {
+    alert('同じ名前の担当者が既にあります');
+    renderAssigneesSettings();
+    return;
+  }
+  const oldName = assignees[i].name;
+  assignees[i].name = newName;
+  store.tasks.forEach(t => { if (t.assignee === oldName) t.assignee = newName; });
+  store.archivedTasks.forEach(t => { if (t.assignee === oldName) t.assignee = newName; });
+  save();
+}
+
+function updateAssigneeColor(i, value) {
+  const assignees = getTaskAssignees();
+  if (assignees[i]) { assignees[i].color = value; save(); }
+}
+
+function removeAssignee(i) {
+  const assignees = getTaskAssignees();
+  if (!confirm(`「${assignees[i].name}」を削除しますか？\n※ この担当者が設定されている既存タスクはそのまま残ります。`)) return;
+  assignees.splice(i, 1);
+  save();
+  renderAssigneesSettings();
+}
+
 // ========== Task CSV ==========
 function buildTasksCSV(taskList) {
-  const headers = ['カテゴリ','クライアント','ストア','タスク内容','期日','ステータス','URL','コメント','繰り返し種別','繰り返し曜日/日','作成日時','完了日時'];
+  const headers = ['カテゴリ','担当','クライアント','ストア','タスク内容','期日','ステータス','URL','コメント','繰り返し種別','繰り返し曜日/日','作成日時','完了日時'];
   const rows = (taskList || []).map(t => [
     t.category || '',
+    t.assignee || '',
     t.client   || '',
     t.store    || '',
     t.content  || '',
@@ -4436,8 +4593,8 @@ function exportArchivedTasksCSV() {
 }
 
 function downloadTasksTemplate() {
-  const headers = ['カテゴリ','クライアント','ストア','タスク内容','期日','ステータス','URL','コメント','繰り返し種別','繰り返し曜日/日','作成日時','完了日時'];
-  const sample = ['自社EC','','','例）新商品の仕入れ発注','2026-04-20','未着手','https://example.com','週1で在庫確認','weekly','1','',''];
+  const headers = ['カテゴリ','担当','クライアント','ストア','タスク内容','期日','ステータス','URL','コメント','繰り返し種別','繰り返し曜日/日','作成日時','完了日時'];
+  const sample = ['自社EC','','','','例）新商品の仕入れ発注','2026-04-20','未着手','https://example.com','週1で在庫確認','weekly','1','',''];
   downloadFile(toCSV([headers, sample]), `タスクテンプレート_${dateStr()}.csv`);
 }
 
@@ -4468,21 +4625,21 @@ function importTasksCSV(text, replace) {
   const rows = parseCSV(text);
   if (rows.length < 2) { alert('データ行がありません'); return; }
   ensureTaskStore();
-  // Detect CSV format by header:
-  //   - v3: has both クライアント + ストア (12 cols)
-  //   - v2: has クライアント only      (11 cols)
-  //   - v1: neither                    (10 cols)
+  // Detect CSV format by header columns. Presence of each lookup column is
+  // independent so we can read any historical layout (v1..v4).
   const header = rows[0].map(c => (c || '').trim());
-  const hasClient = header.includes('クライアント');
-  const hasStore  = header.includes('ストア');
+  const hasAssignee = header.includes('担当');
+  const hasClient   = header.includes('クライアント');
+  const hasStore    = header.includes('ストア');
   const imported = [];
   for (let i = 1; i < rows.length; i++) {
     const parts = rows[i];
     if (parts.length < 2) continue;
     let idx = 0;
     const category = (parts[idx++] || '').trim();
-    const client   = hasClient ? (parts[idx++] || '').trim() : '';
-    const storeVal = hasStore  ? (parts[idx++] || '').trim() : '';
+    const assignee = hasAssignee ? (parts[idx++] || '').trim() : '';
+    const client   = hasClient   ? (parts[idx++] || '').trim() : '';
+    const storeVal = hasStore    ? (parts[idx++] || '').trim() : '';
     const content  = (parts[idx++] || '').trim();
     if (!content) continue;
     const dueDate  = (parts[idx++] || '').trim();
@@ -4503,6 +4660,7 @@ function importTasksCSV(text, replace) {
     imported.push({
       id: String(Date.now()) + i + Math.random().toString(36).slice(2, 6),
       category: category,
+      assignee: assignee,
       client:   client,
       store:    storeVal,
       content:  content,
