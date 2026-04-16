@@ -2745,11 +2745,16 @@ function fmtShort(n) {
 function dealMonthly(deal) {
   const start = new Date(deal.start);
   const end = new Date(deal.end);
+  // Defensive: bail out on invalid dates (avoid NaN propagation)
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return MONTHS.map(() => 0);
+  }
   const startM = start.getFullYear() * 12 + start.getMonth();
   const endM = end.getFullYear() * 12 + end.getMonth();
   const totalMonths = endM - startM + 1;
   if (totalMonths <= 0) return MONTHS.map(() => 0);
-  const perMonth = deal.amount / totalMonths;
+  const amount = Number(deal.amount) || 0;
+  const perMonth = amount / totalMonths;
   return MONTHS.map(m => {
     const mKey = m.getFullYear() * 12 + m.getMonth();
     return (mKey >= startM && mKey <= endM) ? perMonth : 0;
@@ -2774,8 +2779,14 @@ function statusSummary() {
   const result = {};
   STATUSES.forEach(s => result[s] = { amount: 0, count: 0 });
   deals.forEach(d => {
-    result[d.status].amount += dealFYTotal(d);
-    result[d.status].count += 1;
+    const st = d.status;
+    if (!result[st]) {
+      // Unknown status - coerce to 見込み中 so nothing crashes downstream
+      if (typeof console !== 'undefined') console.warn('[statusSummary] Unknown deal status, ignored from charts:', st, d);
+      return;
+    }
+    result[st].amount += dealFYTotal(d);
+    result[st].count += 1;
   });
   return result;
 }
@@ -3691,6 +3702,7 @@ function importDealsCSV(text, replace) {
   const header = rows[0].map(c => (c || '').trim());
   const hasInvoice = header.includes('請求予定日');
   const imported = [];
+  const warnings = [];
   for (let i = 1; i < rows.length; i++) {
     const parts = rows[i];
     if (parts.length < 6) continue;
@@ -3700,17 +3712,33 @@ function importDealsCSV(text, replace) {
     //   0:status 1:client 2:project 3:start 4:end 5:amount 6:perMonth 7:months
     //   8:invoiceDate(new) 9:paymentDate(new) 10:invoiceStatus(new) 11:note(new)
     //   or 8:note (legacy)
-    const invoiceDate   = hasInvoice ? (parts[8]  || '').trim() : '';
-    const paymentDate   = hasInvoice ? (parts[9]  || '').trim() : '';
-    const invoiceStatus = hasInvoice ? ((parts[10] || '未請求').trim() || '未請求') : '未請求';
-    const note          = hasInvoice ? (parts[11] || '').trim() : (parts[8] || parts[6] || '').trim();
+    const invoiceDateRaw = hasInvoice ? (parts[8]  || '').trim() : '';
+    const paymentDateRaw = hasInvoice ? (parts[9]  || '').trim() : '';
+    const invoiceStatus  = hasInvoice ? (normalizeStatusText(parts[10]) || '未請求') : '未請求';
+    const note           = hasInvoice ? (parts[11] || '').trim() : (parts[8] || parts[6] || '').trim();
+
+    // Normalize status: strip BOM/zero-width/full-width spaces; fallback to 見込み中
+    let statusRaw = normalizeStatusText(parts[0] || '');
+    if (!STATUSES.includes(statusRaw)) {
+      if (statusRaw) warnings.push(`行${i+1}: 不明なステータス「${statusRaw}」→ 見込み中で登録`);
+      statusRaw = '見込み中';
+    }
+
+    // Flexible date parsing: accepts YYYY-MM-DD / YYYY/M/D / 3月15日 / 2026年11月 etc.
+    const startNorm = parseFlexibleDate(parts[3]);
+    const endNorm   = parseFlexibleDate(parts[4]);
+    if (!startNorm) warnings.push(`行${i+1}: 開始日「${parts[3]}」を解釈できませんでした`);
+    if (!endNorm)   warnings.push(`行${i+1}: 終了日「${parts[4]}」を解釈できませんでした`);
+    const invoiceDate = parseFlexibleDate(invoiceDateRaw);
+    const paymentDate = parseFlexibleDate(paymentDateRaw);
+
     imported.push({
       id: String(Date.now()) + i + Math.random().toString(36).slice(2,6),
-      status: (parts[0] || '見込み中').trim(),
+      status: statusRaw,
       client: client,
       project: (parts[2] || '').trim(),
-      start: (parts[3] || '').trim(),
-      end: (parts[4] || '').trim(),
+      start: startNorm,
+      end: endNorm,
       amount: Number(String(parts[5]).replace(/[^\d.-]/g, '')) || 0,
       invoiceDate: invoiceDate,
       paymentDate: paymentDate,
@@ -3719,14 +3747,22 @@ function importDealsCSV(text, replace) {
     });
   }
   if (imported.length === 0) { alert('有効なデータがありませんでした'); return; }
-  const msg = replace
+  let msg = replace
     ? `${imported.length}件で既存データを全て置き換えます。よろしいですか？`
     : `${imported.length}件を既存データに追加します。よろしいですか？`;
+  if (warnings.length > 0) {
+    msg += '\n\n⚠️ ' + warnings.length + '件の警告があります:\n' + warnings.slice(0, 5).join('\n') +
+           (warnings.length > 5 ? `\n...他 ${warnings.length - 5}件` : '');
+  }
   if (!confirm(msg)) return;
   deals = replace ? imported : deals.concat(imported);
   save();
-  render();
-  alert(`${imported.length}件の案件を読み込みました`);
+  try {
+    render();
+  } catch (e) {
+    console.error('render failed after import:', e);
+  }
+  alert(`${imported.length}件の案件を読み込みました${warnings.length > 0 ? '（警告 ' + warnings.length + '件）' : ''}`);
 }
 
 function importTargetsCSV(text) {
@@ -4112,6 +4148,51 @@ function parseDateLocal(s) {
   if (!s) return null;
   const [y, m, d] = s.split('-').map(Number);
   return new Date(y, (m || 1) - 1, d || 1);
+}
+
+// Accept many date formats (YYYY-MM-DD, YYYY/M/D, 3月15日, 2026年11月 etc.)
+// and normalize to YYYY-MM-DD. Returns '' if unparseable.
+function parseFlexibleDate(s) {
+  if (s == null) return '';
+  // Strip BOM, zero-width, full-width spaces
+  let str = String(s).replace(/^\uFEFF/, '').replace(/[\s\u3000]/g, '').trim();
+  if (!str) return '';
+  // Already ISO YYYY-MM-DD
+  let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  // YYYY/M/D (slashes or dots)
+  m = str.match(/^(\d{4})[\/.](\d{1,2})[\/.](\d{1,2})$/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  // Japanese YYYY年M月D日
+  m = str.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日?$/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  // Japanese YYYY年M月 (day missing → assume 1st)
+  m = str.match(/^(\d{4})年(\d{1,2})月$/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-01`;
+  // Japanese M月D日 (year missing → assume current year)
+  m = str.match(/^(\d{1,2})月(\d{1,2})日?$/);
+  if (m) {
+    const y = new Date().getFullYear();
+    return `${y}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+  }
+  // M/D (year missing)
+  m = str.match(/^(\d{1,2})[\/.](\d{1,2})$/);
+  if (m) {
+    const y = new Date().getFullYear();
+    return `${y}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+  }
+  // Last resort: let JS Date parse
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  return ''; // unparseable
+}
+
+// Normalize status string: strip BOM, full-width spaces, etc.
+function normalizeStatusText(s) {
+  if (!s) return '';
+  return String(s).replace(/^\uFEFF/, '').replace(/[\s\u3000]/g, '').trim();
 }
 
 function daysInMonth(year, month) {
@@ -5869,7 +5950,7 @@ function importTasksCSV(text, replace) {
     const storeVal = hasStore    ? (parts[idx++] || '').trim() : '';
     const content  = (parts[idx++] || '').trim();
     if (!content) continue;
-    const dueDate  = (parts[idx++] || '').trim();
+    const dueDate  = parseFlexibleDate(parts[idx++] || '');
     const status   = (parts[idx++] || '').trim();
     const estRaw   = hasEstimate ? (parts[idx++] || '').trim() : '';
     const actualRaw = hasActual   ? (parts[idx++] || '').trim() : '';
