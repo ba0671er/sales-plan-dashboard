@@ -1468,6 +1468,46 @@
   .invoice-status.請求済 { background: #fef3c7; color: #92400e; }
   .invoice-status.入金済 { background: #d1fae5; color: #065f46; }
 
+  /* Inline editable cells in deals table */
+  .inline-edit {
+    border: 1px solid transparent;
+    background: transparent;
+    padding: 4px 6px;
+    font: inherit;
+    color: inherit;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    border-radius: 3px;
+    transition: border-color 0.1s, background 0.1s;
+  }
+  .inline-edit:hover:not(:disabled) {
+    border-color: var(--border);
+    background: #fafbfc;
+  }
+  .inline-edit:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 2px rgba(37,99,235,0.12);
+  }
+  .inline-edit.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .inline-edit.dt { min-width: 120px; font-size: 12px; }
+  .inline-edit.amt { min-width: 90px; }
+  .inline-edit.hr  { min-width: 60px; }
+
+  /* Inline status select in deals table */
+  .inline-status {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    min-width: 78px;
+  }
+
   /* Bulk action bar (appears when rows are selected) */
   .bulk-action-bar {
     display: flex;
@@ -1541,11 +1581,6 @@
       <div class="kpi-value" id="jissekiValue">¥0</div>
       <div class="kpi-sub" id="jissekiSub">0件</div>
     </div>
-    <div class="kpi-card kakutei">
-      <div class="kpi-label">確定</div>
-      <div class="kpi-value" id="kakuteiValue">¥0</div>
-      <div class="kpi-sub" id="kakuteiSub">0件</div>
-    </div>
     <div class="kpi-card mikomi">
       <div class="kpi-label">見込み（加重平均）</div>
       <div class="kpi-value" id="mikomiValue">¥0</div>
@@ -1603,7 +1638,6 @@
         </div>
         <div class="legend">
           <div class="legend-item"><span class="legend-dot" style="background:var(--status-jisseki)"></span>実績</div>
-          <div class="legend-item"><span class="legend-dot" style="background:var(--status-kakutei)"></span>確定</div>
           <div class="legend-item"><span class="legend-dot" style="background:var(--status-high)"></span>見込み高</div>
           <div class="legend-item"><span class="legend-dot" style="background:var(--status-mid)"></span>見込み中</div>
           <div class="legend-item"><span class="legend-dot" style="background:var(--status-low)"></span>見込み低</div>
@@ -1650,7 +1684,6 @@
           <label>ステータス</label>
           <select id="f_status">
             <option value="実績">実績</option>
-            <option value="確定">確定</option>
             <option value="見込み高">見込み高</option>
             <option value="見込み中">見込み中</option>
             <option value="見込み低">見込み低</option>
@@ -2244,7 +2277,7 @@ function buildMonths(fy) {
 }
 MONTHS = buildMonths(currentFY);
 
-const STATUSES = ['実績', '確定', '見込み高', '見込み中', '見込み低'];
+const STATUSES = ['実績', '見込み高', '見込み中', '見込み低'];
 const STATUS_COLORS = {
   '実績': '#10b981',
   '確定': '#3b82f6',
@@ -2682,6 +2715,8 @@ function repairDealStatuses() {
       if (!d) return;
       const cleaned = typeof normalizeStatusText === 'function' ? normalizeStatusText(d.status || '') : String(d.status || '').trim();
       if (cleaned !== d.status) { d.status = cleaned; repaired++; }
+      // Legacy: "確定" has been removed from the app. Migrate to 実績 (same weight).
+      if (d.status === '確定') { d.status = '実績'; repaired++; }
       if (!STATUSES.includes(d.status)) {
         d.status = '見込み中';
         repaired++;
@@ -3031,12 +3066,13 @@ function render() {
 function renderKPIs() {
   const summary = statusSummary();
   const total = deals.reduce((sum, d) => sum + dealFYTotal(d), 0);
+  // Defensive lookups — older builds had a "確定" status. Now we only use 4 statuses.
+  const sAmt = (st) => (summary[st] && summary[st].amount) || 0;
   const weighted =
-    summary['実績'].amount * WEIGHTS['実績'] +
-    summary['確定'].amount * WEIGHTS['確定'] +
-    summary['見込み高'].amount * WEIGHTS['見込み高'] +
-    summary['見込み中'].amount * WEIGHTS['見込み中'] +
-    summary['見込み低'].amount * WEIGHTS['見込み低'];
+    sAmt('実績') * WEIGHTS['実績'] +
+    sAmt('見込み高') * WEIGHTS['見込み高'] +
+    sAmt('見込み中') * WEIGHTS['見込み中'] +
+    sAmt('見込み低') * WEIGHTS['見込み低'];
 
   const target = annualTarget();
   document.getElementById('annualTargetValue').textContent = fmtYen(target);
@@ -3048,16 +3084,13 @@ function renderKPIs() {
   document.getElementById('jissekiValue').textContent = fmtYen(summary['実績'].amount);
   document.getElementById('jissekiSub').textContent = `${summary['実績'].count}件`;
 
-  document.getElementById('kakuteiValue').textContent = fmtYen(summary['確定'].amount);
-  document.getElementById('kakuteiSub').textContent = `${summary['確定'].count}件`;
-
   const mikomi = summary['見込み高'].amount * WEIGHTS['見込み高'] +
                  summary['見込み中'].amount * WEIGHTS['見込み中'] +
                  summary['見込み低'].amount * WEIGHTS['見込み低'];
   document.getElementById('mikomiValue').textContent = fmtYen(mikomi);
 
-  // Achievement (実績+確定) / target
-  const actual = summary['実績'].amount + summary['確定'].amount;
+  // Achievement 実績 / target
+  const actual = sAmt('実績');
   const achievementEl = document.getElementById('achievementValue');
   const achievementSub = document.getElementById('achievementSub');
   if (target > 0) {
@@ -3467,47 +3500,126 @@ function renderTable() {
   }
   const sorted = [...deals].sort((a, b) => new Date(a.start) - new Date(b.start));
   sorted.forEach(d => {
-    const start = new Date(d.start);
-    const end = new Date(d.end);
-    const validDates = !isNaN(start.getTime()) && !isNaN(end.getTime());
-    const months = validDates
-      ? ((end.getFullYear()*12+end.getMonth()) - (start.getFullYear()*12+start.getMonth()) + 1)
-      : 0;
-    const perMonth = months > 0 ? (Number(d.amount) || 0) / months : 0;
-    const monthlyHours = Number(d.monthlyHours) || 0;
-    const hourly = dealHourlyRate(d);
-    const hourlyStr = hourly > 0
-      ? '¥' + Math.round(hourly).toLocaleString('ja-JP') + '/h'
-      : '—';
-    const hourlyClass = hourly >= 8000 ? 'rate-good'
-                       : hourly >= 4000 ? 'rate-mid'
-                       : hourly > 0     ? 'rate-low'
-                       : '';
-    const isSelected = selectedDealIds.has(d.id);
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><input type="checkbox" class="deal-row-check" data-id="${escapeAttr(d.id)}" ${isSelected ? 'checked' : ''} onchange="toggleDealSelection('${escapeAttr(d.id)}', this.checked)"></td>
-      <td><span class="status-badge badge-${d.status}">${d.status}</span></td>
-      <td>${escapeHtml(d.client)}</td>
-      <td>${escapeHtml(d.project || '')}</td>
-      <td>${fmtDate(d.start)}</td>
-      <td>${fmtDate(d.end)}</td>
-      <td class="num">${fmtYen(d.amount)}</td>
-      <td class="num">${fmtYen(perMonth)}</td>
-      <td class="num">${months > 0 ? months + 'ヶ月' : '—'}</td>
-      <td class="num">${monthlyHours > 0 ? monthlyHours + 'h' : '—'}</td>
-      <td class="num ${hourlyClass}">${hourlyStr}</td>
-      <td>${escapeHtml(d.note || '')}</td>
-      <td>
-        <div class="row-actions">
-          <button class="icon-btn" onclick="editDeal('${d.id}')">編集</button>
-          <button class="icon-btn delete" onclick="deleteDeal('${d.id}')">削除</button>
-        </div>
-      </td>
-    `;
-    tbody.appendChild(tr);
+    tbody.appendChild(buildDealRow(d));
   });
   updateDealsBulkBar();
+}
+
+// Build one editable deal row. All cells are inline-editable inputs.
+function buildDealRow(d) {
+  const months = dealMonthCount(d);
+  const perMonth = months > 0 ? (Number(d.amount) || 0) / months : 0;
+  const monthlyHours = Number(d.monthlyHours) || 0;
+  const hourly = dealHourlyRate(d);
+  const hourlyStr = hourly > 0 ? '¥' + Math.round(hourly).toLocaleString('ja-JP') + '/h' : '—';
+  const hourlyClass = hourly >= 8000 ? 'rate-good' : hourly >= 4000 ? 'rate-mid' : hourly > 0 ? 'rate-low' : '';
+  const isSelected = selectedDealIds.has(d.id);
+  const statusOptions = STATUSES.map(s =>
+    `<option value="${escapeAttr(s)}"${s === d.status ? ' selected' : ''}>${escapeHtml(s)}</option>`
+  ).join('');
+  const statusColor = STATUS_COLORS[d.status] || '#9ca3af';
+
+  const tr = document.createElement('tr');
+  tr.setAttribute('data-deal-id', d.id);
+  tr.innerHTML = `
+    <td><input type="checkbox" class="deal-row-check" data-id="${escapeAttr(d.id)}" ${isSelected ? 'checked' : ''} onchange="toggleDealSelection('${escapeAttr(d.id)}', this.checked)"></td>
+    <td>
+      <select class="inline-status" style="background:${statusColor};" onchange="updateDealField('${escapeAttr(d.id)}', 'status', this.value)">
+        ${statusOptions}
+      </select>
+    </td>
+    <td><input class="inline-edit" type="text" value="${escapeAttr(d.client)}" onchange="updateDealField('${escapeAttr(d.id)}', 'client', this.value)" /></td>
+    <td><input class="inline-edit" type="text" value="${escapeAttr(d.project || '')}" onchange="updateDealField('${escapeAttr(d.id)}', 'project', this.value)" /></td>
+    <td><input class="inline-edit dt" type="date" value="${escapeAttr(d.start || '')}" onchange="updateDealField('${escapeAttr(d.id)}', 'start', this.value)" /></td>
+    <td><input class="inline-edit dt" type="date" value="${escapeAttr(d.end || '')}" onchange="updateDealField('${escapeAttr(d.id)}', 'end', this.value)" /></td>
+    <td class="num"><input class="inline-edit num amt" type="number" value="${d.amount || ''}" placeholder="0" onchange="updateDealField('${escapeAttr(d.id)}', 'amount', this.value)" /></td>
+    <td class="num"><input class="inline-edit num amt cell-monthly" type="number" value="${perMonth ? Math.round(perMonth) : ''}" placeholder="0" onchange="updateDealField('${escapeAttr(d.id)}', 'monthly', this.value)" /></td>
+    <td class="num cell-months">${months > 0 ? months + 'ヶ月' : '—'}</td>
+    <td class="num"><input class="inline-edit num hr" type="number" step="0.5" value="${monthlyHours || ''}" placeholder="0" onchange="updateDealField('${escapeAttr(d.id)}', 'monthlyHours', this.value)" /></td>
+    <td class="num cell-hourly ${hourlyClass}">${hourlyStr}</td>
+    <td><input class="inline-edit" type="text" value="${escapeAttr(d.note || '')}" onchange="updateDealField('${escapeAttr(d.id)}', 'note', this.value)" /></td>
+    <td>
+      <div class="row-actions">
+        <button class="icon-btn delete" onclick="deleteDeal('${escapeAttr(d.id)}')" title="削除">✕</button>
+      </div>
+    </td>
+  `;
+  return tr;
+}
+
+// Update a single field of a deal from an inline edit, persist, and refresh
+// the derived cells (月数 / 時給 / 月額表示 / 契約金額表示) in that row only —
+// avoiding a full re-render preserves keyboard focus across edits.
+function updateDealField(id, field, rawValue) {
+  const d = deals.find(x => x.id === id);
+  if (!d) return;
+  let value = rawValue;
+  if (field === 'amount' || field === 'monthly' || field === 'monthlyHours') {
+    value = Number(String(value).replace(/[^\d.-]/g, '')) || 0;
+  }
+  if (field === 'monthly') {
+    // 月額を編集 → 契約金額 = 月額 × 月数 として更新
+    const months = dealMonthCount(d);
+    if (months > 0) d.amount = Math.round(value * months);
+  } else {
+    d[field] = value;
+  }
+  save();
+  // Status select background color update
+  if (field === 'status') {
+    const row = findDealRow(id);
+    if (row) {
+      const sel = row.querySelector('.inline-status');
+      if (sel) sel.style.background = STATUS_COLORS[d.status] || '#9ca3af';
+    }
+  }
+  refreshDealRowDerived(id);
+  // Some renders (KPI, chart, status summary) depend on deal fields too.
+  // Re-run them without touching the table DOM so focus is preserved.
+  safeRerenderSalesAggregates();
+}
+
+// Safe row lookup by deal id (CSS.escape is not always available, e.g. in jsdom)
+function findDealRow(id) {
+  const safe = (typeof CSS !== 'undefined' && CSS && CSS.escape) ? CSS.escape(id) : String(id).replace(/"/g, '\\"');
+  return document.querySelector('tr[data-deal-id="' + safe + '"]');
+}
+
+function refreshDealRowDerived(id) {
+  const d = deals.find(x => x.id === id);
+  if (!d) return;
+  const row = findDealRow(id);
+  if (!row) return;
+  const months = dealMonthCount(d);
+  const perMonth = months > 0 ? (Number(d.amount) || 0) / months : 0;
+  const hourly = dealHourlyRate(d);
+  // months cell
+  const mCell = row.querySelector('.cell-months');
+  if (mCell) mCell.textContent = months > 0 ? months + 'ヶ月' : '—';
+  // monthly cell (keep in sync unless it's currently focused)
+  const mEl = row.querySelector('.cell-monthly');
+  if (mEl && document.activeElement !== mEl) {
+    mEl.value = perMonth ? Math.round(perMonth) : '';
+  }
+  // hourly cell
+  const hCell = row.querySelector('.cell-hourly');
+  if (hCell) {
+    hCell.textContent = hourly > 0 ? '¥' + Math.round(hourly).toLocaleString('ja-JP') + '/h' : '—';
+    hCell.classList.remove('rate-good','rate-mid','rate-low');
+    if (hourly >= 8000)     hCell.classList.add('rate-good');
+    else if (hourly >= 4000) hCell.classList.add('rate-mid');
+    else if (hourly > 0)     hCell.classList.add('rate-low');
+  }
+}
+
+function safeRerenderSalesAggregates() {
+  // Only the sections that depend on deal data, not the table itself.
+  const safeCall = (name, fn) => { try { fn(); } catch(e) { console.error('[' + name + ']', e); } };
+  safeCall('renderKPIs',          renderKPIs);
+  safeCall('renderMonthlyChart',  renderMonthlyChart);
+  safeCall('renderYoYChart',      renderYoYChart);
+  safeCall('renderStatusSummary', renderStatusSummary);
+  safeCall('renderRanking',       renderRanking);
 }
 
 function escapeHtml(s) {
