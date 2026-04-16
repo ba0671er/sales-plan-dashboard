@@ -3969,6 +3969,25 @@ function importDealsCSV(text, replace) {
     const invoiceDate = parseFlexibleDate(invoiceDateRaw);
     const paymentDate = parseFlexibleDate(paymentDateRaw);
 
+    // Amount: auto-compute if empty but perMonth + months (or dates) are provided.
+    // This lets CSVs from spreadsheets that only filled 月額 / 契約月数 still work.
+    let amount = Number(String(amountStr).replace(/[^\d.-]/g, '')) || 0;
+    const perMonth = Number(String(parts[6] || '').replace(/[^\d.-]/g, '')) || 0;
+    const monthsFromCol = Number(String(parts[7] || '').replace(/[^\d.-]/g, '')) || 0;
+    if (!amount) {
+      if (perMonth > 0 && monthsFromCol > 0) {
+        amount = Math.round(perMonth * monthsFromCol);
+      } else if (perMonth > 0 && startNorm && endNorm) {
+        // Derive months from dates as a last resort
+        const s = new Date(startNorm);
+        const e = new Date(endNorm);
+        if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+          const m = (e.getFullYear()*12 + e.getMonth()) - (s.getFullYear()*12 + s.getMonth()) + 1;
+          if (m > 0) amount = Math.round(perMonth * m);
+        }
+      }
+    }
+
     imported.push({
       id: String(Date.now()) + i + Math.random().toString(36).slice(2,6),
       status: statusRaw,
@@ -3976,7 +3995,7 @@ function importDealsCSV(text, replace) {
       project: (parts[2] || '').trim(),
       start: startNorm,
       end: endNorm,
-      amount: Number(String(amountStr).replace(/[^\d.-]/g, '')) || 0,
+      amount: amount,
       invoiceDate: invoiceDate,
       paymentDate: paymentDate,
       invoiceStatus: invoiceStatus,
