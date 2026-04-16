@@ -2644,6 +2644,9 @@ function load() {
   store.fiscalYears.forEach(fy => ensureFY(fy));
   ensureTaskStore();
   migratePaletteToPastels();
+  // One-shot cleanup: fix any deals whose status has BOM/invisible chars or
+  // is otherwise not one of STATUSES (caused charts to crash in older builds)
+  repairDealStatuses();
   currentFY = store.currentFY;
   MONTHS = buildMonths(currentFY);
   // Process recurring resets and archive on load
@@ -2651,6 +2654,27 @@ function load() {
   archiveCompletedTasks();
   // Auto-close any dangling time-tracking sessions from a previous crash
   reconcileDanglingTimers();
+}
+
+function repairDealStatuses() {
+  if (!store.data) return;
+  let repaired = 0;
+  Object.keys(store.data).forEach(fy => {
+    const arr = (store.data[fy] && store.data[fy].deals) || [];
+    arr.forEach(d => {
+      if (!d) return;
+      const cleaned = typeof normalizeStatusText === 'function' ? normalizeStatusText(d.status || '') : String(d.status || '').trim();
+      if (cleaned !== d.status) { d.status = cleaned; repaired++; }
+      if (!STATUSES.includes(d.status)) {
+        d.status = '見込み中';
+        repaired++;
+      }
+    });
+  });
+  if (repaired > 0) {
+    save();
+    if (typeof console !== 'undefined') console.info('[repairDealStatuses] normalized', repaired, 'deal status fields');
+  }
 }
 
 function annualTarget() {
@@ -2769,6 +2793,11 @@ function monthlyTotalsByStatus() {
   const result = {};
   STATUSES.forEach(s => result[s] = MONTHS.map(() => 0));
   deals.forEach(d => {
+    if (!result[d.status]) {
+      // Unknown status - skip silently for chart purposes
+      if (typeof console !== 'undefined') console.warn('[monthlyTotalsByStatus] Unknown deal status, skipped:', d.status, d);
+      return;
+    }
     const monthly = dealMonthly(d);
     monthly.forEach((v, i) => { result[d.status][i] += v; });
   });
@@ -2815,15 +2844,23 @@ function fmtDate(s) {
 
 // ========== Rendering ==========
 function render() {
-  renderFYSelector();
-  renderKPIs();
-  renderTargetsEditor();
-  renderMonthlyChart();
-  renderYoYChart();
-  renderStatusSummary();
-  renderRanking();
-  renderInvoiceCalendar();
-  renderTable();
+  // Wrap each section in try/catch so one failing function doesn't prevent
+  // the rest from rendering (helps isolate bugs after data corruption).
+  const safeCall = (name, fn) => {
+    try { fn(); }
+    catch (e) {
+      if (typeof console !== 'undefined') console.error('[' + name + '] failed:', e);
+    }
+  };
+  safeCall('renderFYSelector',     renderFYSelector);
+  safeCall('renderKPIs',           renderKPIs);
+  safeCall('renderTargetsEditor',  renderTargetsEditor);
+  safeCall('renderMonthlyChart',   renderMonthlyChart);
+  safeCall('renderYoYChart',       renderYoYChart);
+  safeCall('renderStatusSummary',  renderStatusSummary);
+  safeCall('renderRanking',        renderRanking);
+  safeCall('renderInvoiceCalendar', renderInvoiceCalendar);
+  safeCall('renderTable',          renderTable);
 }
 
 function renderKPIs() {
