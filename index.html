@@ -2920,23 +2920,60 @@ function renderFYSelector() {
 }
 
 // Get monthly totals for a specific FY (used for YoY)
+// Day-based pro-rated monthly allocation of a deal across the given months.
+// Uses 月額 (= amount / month count) as the nominal monthly rate, and pro-rates
+// it by (overlap_days / days_in_month). That means:
+//   - 月の途中で開始/終了した月は日割り (日数 / その月の総日数 × 月額)
+//   - 完全に契約期間内の月は 月額 そのまま
+// 例) 月額 10万 / 契約 3/15〜5/31 の場合:
+//   3月 = 10万 × 17/31 ≒ 54,839円
+//   4月 = 10万
+//   5月 = 10万
+// ※ 総計は契約金額より若干少なくなることがあります (月の長さが異なるため)。
+//   これは日割り計算における正常な挙動です。
+function dealMonthlyForMonths(deal, months) {
+  const start = new Date(deal.start);
+  const end = new Date(deal.end);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return months.map(() => 0);
+  }
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+  if (end < start) return months.map(() => 0);
+
+  const amount = Number(deal.amount) || 0;
+  const startM = start.getFullYear() * 12 + start.getMonth();
+  const endM   = end.getFullYear()   * 12 + end.getMonth();
+  const totalMonths = endM - startM + 1;
+  if (totalMonths <= 0) return months.map(() => 0);
+  const perMonth = amount / totalMonths;  // 月額相当 (nominal monthly)
+
+  const DAY = 24 * 60 * 60 * 1000;
+  return months.map(m => {
+    const mKey = m.getFullYear() * 12 + m.getMonth();
+    if (mKey < startM || mKey > endM) return 0;
+    const monthStart = new Date(m.getFullYear(), m.getMonth(), 1);
+    const monthEnd   = new Date(m.getFullYear(), m.getMonth() + 1, 0); // last day
+    monthStart.setHours(0, 0, 0, 0);
+    monthEnd.setHours(0, 0, 0, 0);
+    const daysInMonth = monthEnd.getDate();
+    const overlapStart = start > monthStart ? start : monthStart;
+    const overlapEnd   = end   < monthEnd   ? end   : monthEnd;
+    const overlapDays = Math.round((overlapEnd.getTime() - overlapStart.getTime()) / DAY) + 1;
+    if (overlapDays <= 0) return 0;
+    // Pro-rate: 完全にカバーしている月は 1.0、部分月は日割り
+    return perMonth * (overlapDays / daysInMonth);
+  });
+}
+
 function monthlyActualForFY(fy) {
   const data = store.data[fy];
   if (!data) return new Array(12).fill(0);
   const months = buildMonths(fy);
   const result = new Array(12).fill(0);
   data.deals.forEach(d => {
-    const start = new Date(d.start);
-    const end = new Date(d.end);
-    const startM = start.getFullYear() * 12 + start.getMonth();
-    const endM = end.getFullYear() * 12 + end.getMonth();
-    const totalMonths = endM - startM + 1;
-    if (totalMonths <= 0) return;
-    const perMonth = d.amount / totalMonths;
-    months.forEach((m, i) => {
-      const mKey = m.getFullYear() * 12 + m.getMonth();
-      if (mKey >= startM && mKey <= endM) result[i] += perMonth;
-    });
+    const contribs = dealMonthlyForMonths(d, months);
+    contribs.forEach((v, i) => { result[i] += v; });
   });
   return result;
 }
@@ -2968,22 +3005,7 @@ function fmtShort(n) {
 // ========== Calculations ==========
 // Returns monthly amount for each of the 12 months for a single deal
 function dealMonthly(deal) {
-  const start = new Date(deal.start);
-  const end = new Date(deal.end);
-  // Defensive: bail out on invalid dates (avoid NaN propagation)
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-    return MONTHS.map(() => 0);
-  }
-  const startM = start.getFullYear() * 12 + start.getMonth();
-  const endM = end.getFullYear() * 12 + end.getMonth();
-  const totalMonths = endM - startM + 1;
-  if (totalMonths <= 0) return MONTHS.map(() => 0);
-  const amount = Number(deal.amount) || 0;
-  const perMonth = amount / totalMonths;
-  return MONTHS.map(m => {
-    const mKey = m.getFullYear() * 12 + m.getMonth();
-    return (mKey >= startM && mKey <= endM) ? perMonth : 0;
-  });
+  return dealMonthlyForMonths(deal, MONTHS);
 }
 
 function dealFYTotal(deal) {
