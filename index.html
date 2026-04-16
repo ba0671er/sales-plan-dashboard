@@ -1723,6 +1723,7 @@
             </button>
           </div>
         </div>
+        <button type="button" class="btn-secondary" onclick="manualDeduplicate()" title="同じ内容の案件を削除">♻ 重複削除</button>
         <button class="btn-secondary" onclick="downloadDealsTemplateEmpty()">📄 テンプレート</button>
         <div class="dropdown" id="uploadDropdown">
           <button class="btn-secondary" onclick="toggleDropdown('uploadDropdown')">⬆ アップロード ▾</button>
@@ -2647,6 +2648,8 @@ function load() {
   // One-shot cleanup: fix any deals whose status has BOM/invisible chars or
   // is otherwise not one of STATUSES (caused charts to crash in older builds)
   repairDealStatuses();
+  // Also re-parse any non-ISO date strings left behind by older imports
+  repairDealDates();
   currentFY = store.currentFY;
   MONTHS = buildMonths(currentFY);
   // Process recurring resets and archive on load
@@ -2674,6 +2677,97 @@ function repairDealStatuses() {
   if (repaired > 0) {
     save();
     if (typeof console !== 'undefined') console.info('[repairDealStatuses] normalized', repaired, 'deal status fields');
+  }
+}
+
+// Re-parse stored start/end dates through parseFlexibleDate so old
+// non-ISO entries (like "3月15日") become valid YYYY-MM-DD.
+function repairDealDates() {
+  if (!store.data || typeof parseFlexibleDate !== 'function') return;
+  let repaired = 0;
+  const fields = ['start', 'end', 'invoiceDate', 'paymentDate'];
+  Object.keys(store.data).forEach(fy => {
+    const arr = (store.data[fy] && store.data[fy].deals) || [];
+    arr.forEach(d => {
+      if (!d) return;
+      fields.forEach(f => {
+        const v = d[f];
+        if (!v) return;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return; // already ISO
+        const parsed = parseFlexibleDate(v);
+        if (parsed !== v) { d[f] = parsed || ''; repaired++; }
+      });
+    });
+  });
+  if (repaired > 0) {
+    save();
+    if (typeof console !== 'undefined') console.info('[repairDealDates] fixed', repaired, 'date fields');
+  }
+}
+
+// Canonical key of a deal for deduplication
+function dealKey(d) {
+  return [d.status || '', d.client || '', d.project || '', d.start || '', d.end || '', Number(d.amount) || 0, d.note || ''].join('||');
+}
+
+// Remove exact duplicate deals (same status+client+project+start+end+amount+note).
+// Returns number removed. Does NOT call render() — caller should do that.
+function deduplicateDeals() {
+  const seen = new Set();
+  const unique = [];
+  let removed = 0;
+  (deals || []).forEach(d => {
+    const k = dealKey(d);
+    if (seen.has(k)) {
+      removed++;
+    } else {
+      seen.add(k);
+      unique.push(d);
+    }
+  });
+  if (removed > 0) {
+    deals = unique;
+    save();
+  }
+  return removed;
+}
+
+// Heal unquoted "150,000" comma-as-thousands-separator that got mis-split
+// by the CSV parser. The number of merges to perform is determined by how
+// many EXTRA columns the row has vs the expected count — this prevents
+// over-merging when multiple amount columns each had commas.
+// Mutates parts in place.
+function healCsvRow(parts, expectedCols) {
+  if (!parts || parts.length <= expectedCols) return parts;
+  let excess = parts.length - expectedCols;
+  // Walk left-to-right, merging adjacent [1-3 digit head, exactly 3 digit tail]
+  // pairs until we've consumed the excess count.
+  for (let i = 0; i < parts.length - 1 && excess > 0; i++) {
+    const cur = String(parts[i] || '');
+    const nxt = String(parts[i + 1] || '');
+    // Head must be 1-3 digits (so it looks like the start of a number)
+    // Tail must be exactly 3 digits (looks like a thousands group)
+    if (/^\d{1,3}$/.test(cur) && /^\d{3}$/.test(nxt)) {
+      parts[i] = cur + nxt;
+      parts.splice(i + 1, 1);
+      excess--;
+      // Chain consecutively (e.g., "1,000,000" splits into 3 cells → 2 merges)
+      i--; // re-examine same index
+    }
+  }
+  return parts;
+}
+
+// Invoked by the "重複削除" toolbar button
+function manualDeduplicate() {
+  if (!deals || deals.length === 0) { alert('案件がまだありません'); return; }
+  const before = deals.length;
+  const removed = deduplicateDeals();
+  if (removed === 0) {
+    alert('重複は見つかりませんでした (' + before + '件すべて一意)');
+  } else {
+    alert(`${removed}件の重複を削除しました\n${before}件 → ${before - removed}件`);
+    try { render(); } catch(e) { console.error(e); }
   }
 }
 
@@ -3738,21 +3832,32 @@ function importDealsCSV(text, replace) {
   // Detect format by header. Legacy: 9 columns, new: 12 columns with invoice fields
   const header = rows[0].map(c => (c || '').trim());
   const hasInvoice = header.includes('請求予定日');
+  const expectedCols = hasInvoice ? 12 : 9;
   const imported = [];
   const warnings = [];
   for (let i = 1; i < rows.length; i++) {
     const parts = rows[i];
     if (parts.length < 6) continue;
+
+    // Heal "150,000" unquoted thousands-separator splits by merging adjacent
+    // 3-digit groups back together. The number of merges equals how many
+    // extra columns we have vs expected.
+    if (parts.length > expectedCols) {
+      healCsvRow(parts, expectedCols);
+    }
+
     const client = (parts[1] || '').trim();
     if (!client) continue;
-    // Column layout:
+    const amountStr = String(parts[5] || '');
+
+    // Column layout (after possible merges at index 5):
     //   0:status 1:client 2:project 3:start 4:end 5:amount 6:perMonth 7:months
     //   8:invoiceDate(new) 9:paymentDate(new) 10:invoiceStatus(new) 11:note(new)
     //   or 8:note (legacy)
     const invoiceDateRaw = hasInvoice ? (parts[8]  || '').trim() : '';
     const paymentDateRaw = hasInvoice ? (parts[9]  || '').trim() : '';
     const invoiceStatus  = hasInvoice ? (normalizeStatusText(parts[10]) || '未請求') : '未請求';
-    const note           = hasInvoice ? (parts[11] || '').trim() : (parts[8] || parts[6] || '').trim();
+    const note           = hasInvoice ? (parts[11] || '').trim() : (parts[8] || '').trim();
 
     // Normalize status: strip BOM/zero-width/full-width spaces; fallback to 見込み中
     let statusRaw = normalizeStatusText(parts[0] || '');
@@ -3776,7 +3881,7 @@ function importDealsCSV(text, replace) {
       project: (parts[2] || '').trim(),
       start: startNorm,
       end: endNorm,
-      amount: Number(String(parts[5]).replace(/[^\d.-]/g, '')) || 0,
+      amount: Number(String(amountStr).replace(/[^\d.-]/g, '')) || 0,
       invoiceDate: invoiceDate,
       paymentDate: paymentDate,
       invoiceStatus: invoiceStatus,
@@ -3794,12 +3899,18 @@ function importDealsCSV(text, replace) {
   if (!confirm(msg)) return;
   deals = replace ? imported : deals.concat(imported);
   save();
+  // Auto-deduplicate (remove exact duplicates that may have accumulated from
+  // repeated "追加" imports). User is notified of any removals.
+  const dupRemoved = deduplicateDeals();
   try {
     render();
   } catch (e) {
     console.error('render failed after import:', e);
   }
-  alert(`${imported.length}件の案件を読み込みました${warnings.length > 0 ? '（警告 ' + warnings.length + '件）' : ''}`);
+  let doneMsg = `${imported.length}件の案件を読み込みました`;
+  if (dupRemoved > 0) doneMsg += `\n（重複 ${dupRemoved}件を自動削除）`;
+  if (warnings.length > 0) doneMsg += `\n（警告 ${warnings.length}件）`;
+  alert(doneMsg);
 }
 
 function importTargetsCSV(text) {
