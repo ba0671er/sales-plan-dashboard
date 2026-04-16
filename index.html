@@ -1397,9 +1397,9 @@
   }
   .insights-table tr:last-child td { border-bottom: none; }
   .insights-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .insights-table .rate-good { color: var(--success); font-weight: 600; }
-  .insights-table .rate-mid  { color: var(--warning); font-weight: 600; }
-  .insights-table .rate-low  { color: var(--danger);  font-weight: 600; }
+  .insights-table .rate-good, td.rate-good { color: var(--success); font-weight: 600; }
+  .insights-table .rate-mid,  td.rate-mid  { color: var(--warning); font-weight: 600; }
+  .insights-table .rate-low,  td.rate-low  { color: var(--danger);  font-weight: 600; }
 
   /* Productivity heatmap */
   .heatmap-grid {
@@ -1677,20 +1677,12 @@
           <input type="number" id="f_amount" placeholder="1000000" />
         </div>
         <div class="form-field">
-          <label>請求予定日</label>
-          <input type="date" id="f_invoiceDate" />
+          <label>月額（円）<span style="font-weight:400; color:var(--text-sub); font-size:10px;">※空なら契約金額÷月数で自動算出</span></label>
+          <input type="number" id="f_monthly" placeholder="例: 150000" />
         </div>
         <div class="form-field">
-          <label>入金予定日</label>
-          <input type="date" id="f_paymentDate" />
-        </div>
-        <div class="form-field">
-          <label>請求ステータス</label>
-          <select id="f_invoiceStatus">
-            <option value="未請求">未請求</option>
-            <option value="請求済">請求済</option>
-            <option value="入金済">入金済</option>
-          </select>
+          <label>月稼働時間（h）<span style="font-weight:400; color:var(--text-sub); font-size:10px;">※時給の算出に使用</span></label>
+          <input type="number" id="f_monthlyHours" placeholder="例: 20" step="0.5" />
         </div>
         <div class="form-field full">
           <label>備考</label>
@@ -1701,14 +1693,6 @@
         <button class="btn-secondary" onclick="resetForm()">クリア</button>
         <button class="btn-primary" id="saveBtn" onclick="saveDeal()">案件を追加</button>
       </div>
-    </div>
-  </div>
-
-  <!-- Invoice / Payment Calendar -->
-  <div class="section">
-    <h2 class="section-title">請求・入金カレンダー</h2>
-    <div class="card">
-      <div id="invoiceCalendarList"></div>
     </div>
   </div>
 
@@ -1788,6 +1772,8 @@
               <th class="num">契約金額</th>
               <th class="num">月額</th>
               <th class="num">月数</th>
+              <th class="num">月稼働h</th>
+              <th class="num">時給</th>
               <th>備考</th>
               <th></th>
             </tr>
@@ -2323,11 +2309,13 @@ function ensureFY(fy) {
   if (!Array.isArray(store.data[fy].monthlyTargets) || store.data[fy].monthlyTargets.length !== 12) {
     store.data[fy].monthlyTargets = new Array(12).fill(0);
   }
-  // Normalize deals: ensure invoice/payment fields exist
+  // Normalize deals: ensure newer fields exist (invoice fields kept for
+  // backward-compat with older data; not shown in UI anymore).
   store.data[fy].deals.forEach(d => {
     if (typeof d.invoiceDate === 'undefined')   d.invoiceDate = '';
     if (typeof d.paymentDate === 'undefined')   d.paymentDate = '';
     if (typeof d.invoiceStatus === 'undefined') d.invoiceStatus = '未請求';
+    if (typeof d.monthlyHours === 'undefined')  d.monthlyHours = 0;
   });
   if (!store.fiscalYears.includes(fy)) {
     store.fiscalYears.push(fy);
@@ -3037,7 +3025,6 @@ function render() {
   safeCall('renderYoYChart',       renderYoYChart);
   safeCall('renderStatusSummary',  renderStatusSummary);
   safeCall('renderRanking',        renderRanking);
-  safeCall('renderInvoiceCalendar', renderInvoiceCalendar);
   safeCall('renderTable',          renderTable);
 }
 
@@ -3474,7 +3461,7 @@ function renderTable() {
   selectedDealIds.forEach(id => { if (!existingIds.has(id)) selectedDealIds.delete(id); });
 
   if (deals.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" class="empty-state">案件がまだありません。上のフォームから追加してください。</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="empty-state">案件がまだありません。上のフォームから追加してください。</td></tr>';
     updateDealsBulkBar();
     return;
   }
@@ -3487,6 +3474,15 @@ function renderTable() {
       ? ((end.getFullYear()*12+end.getMonth()) - (start.getFullYear()*12+start.getMonth()) + 1)
       : 0;
     const perMonth = months > 0 ? (Number(d.amount) || 0) / months : 0;
+    const monthlyHours = Number(d.monthlyHours) || 0;
+    const hourly = dealHourlyRate(d);
+    const hourlyStr = hourly > 0
+      ? '¥' + Math.round(hourly).toLocaleString('ja-JP') + '/h'
+      : '—';
+    const hourlyClass = hourly >= 8000 ? 'rate-good'
+                       : hourly >= 4000 ? 'rate-mid'
+                       : hourly > 0     ? 'rate-low'
+                       : '';
     const isSelected = selectedDealIds.has(d.id);
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -3499,6 +3495,8 @@ function renderTable() {
       <td class="num">${fmtYen(d.amount)}</td>
       <td class="num">${fmtYen(perMonth)}</td>
       <td class="num">${months > 0 ? months + 'ヶ月' : '—'}</td>
+      <td class="num">${monthlyHours > 0 ? monthlyHours + 'h' : '—'}</td>
+      <td class="num ${hourlyClass}">${hourlyStr}</td>
       <td>${escapeHtml(d.note || '')}</td>
       <td>
         <div class="row-actions">
@@ -3519,23 +3517,45 @@ function escapeHtml(s) {
 
 // ========== CRUD ==========
 function saveDeal() {
+  const start = document.getElementById('f_start').value;
+  const end   = document.getElementById('f_end').value;
+  const amountInput  = Number(document.getElementById('f_amount').value) || 0;
+  const monthlyInput = Number(document.getElementById('f_monthly').value) || 0;
+
+  // If 契約金額 is blank but 月額 is filled, compute amount from monthly × months
+  let amount = amountInput;
+  if (!amount && monthlyInput > 0 && start && end) {
+    const s = new Date(start);
+    const e = new Date(end);
+    if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+      const m = (e.getFullYear()*12 + e.getMonth()) - (s.getFullYear()*12 + s.getMonth()) + 1;
+      if (m > 0) amount = Math.round(monthlyInput * m);
+    }
+  }
+
+  // Preserve any existing invoice fields from the original deal (they're kept
+  // for backward-compat but not edited via the UI anymore).
+  const existing = editingId ? deals.find(d => d.id === editingId) : null;
+
   const deal = {
     id: editingId || String(Date.now()) + Math.random().toString(36).slice(2, 8),
     status: document.getElementById('f_status').value,
     client: document.getElementById('f_client').value.trim(),
     project: document.getElementById('f_project').value.trim(),
-    start: document.getElementById('f_start').value,
-    end: document.getElementById('f_end').value,
-    amount: Number(document.getElementById('f_amount').value) || 0,
-    invoiceDate: (document.getElementById('f_invoiceDate') || {}).value || '',
-    paymentDate: (document.getElementById('f_paymentDate') || {}).value || '',
-    invoiceStatus: (document.getElementById('f_invoiceStatus') || {}).value || '未請求',
+    start: start,
+    end: end,
+    amount: amount,
+    monthlyHours: Number(document.getElementById('f_monthlyHours').value) || 0,
+    // preserve legacy fields if they were set
+    invoiceDate:   existing ? (existing.invoiceDate   || '') : '',
+    paymentDate:   existing ? (existing.paymentDate   || '') : '',
+    invoiceStatus: existing ? (existing.invoiceStatus || '未請求') : '未請求',
     note: document.getElementById('f_note').value.trim()
   };
   if (!deal.client) { alert('クライアント名を入力してください'); return; }
   if (!deal.start || !deal.end) { alert('契約開始日と終了日を入力してください'); return; }
   if (new Date(deal.end) < new Date(deal.start)) { alert('終了日は開始日以降にしてください'); return; }
-  if (deal.amount <= 0) { alert('契約金額を入力してください'); return; }
+  if (deal.amount <= 0) { alert('契約金額または月額を入力してください'); return; }
 
   if (editingId) {
     deals = deals.map(d => d.id === editingId ? deal : d);
@@ -3556,16 +3576,38 @@ function editDeal(id) {
   document.getElementById('f_project').value = d.project || '';
   document.getElementById('f_start').value = d.start;
   document.getElementById('f_end').value = d.end;
-  document.getElementById('f_amount').value = d.amount;
-  const inv = document.getElementById('f_invoiceDate');
-  const pay = document.getElementById('f_paymentDate');
-  const inst = document.getElementById('f_invoiceStatus');
-  if (inv) inv.value = d.invoiceDate || '';
-  if (pay) pay.value = d.paymentDate || '';
-  if (inst) inst.value = d.invoiceStatus || '未請求';
+  document.getElementById('f_amount').value = d.amount || '';
+  // Derive monthly amount from amount / months for convenient editing
+  const monthsNum = dealMonthCount(d);
+  const monthlyVal = (monthsNum > 0 && d.amount) ? Math.round(d.amount / monthsNum) : '';
+  const mEl = document.getElementById('f_monthly');
+  if (mEl) mEl.value = monthlyVal;
+  const mhEl = document.getElementById('f_monthlyHours');
+  if (mhEl) mhEl.value = d.monthlyHours || '';
   document.getElementById('f_note').value = d.note || '';
   document.getElementById('saveBtn').textContent = '更新する';
   window.scrollTo({ top: document.querySelector('.form-grid').offsetTop - 80, behavior: 'smooth' });
+}
+
+// Compute inclusive month count of a deal (1 if same month, etc.)
+function dealMonthCount(d) {
+  if (!d || !d.start || !d.end) return 0;
+  const s = new Date(d.start);
+  const e = new Date(d.end);
+  if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0;
+  const m = (e.getFullYear()*12 + e.getMonth()) - (s.getFullYear()*12 + s.getMonth()) + 1;
+  return m > 0 ? m : 0;
+}
+
+// Compute hourly rate of a deal (¥/h) from amount / (months × monthlyHours).
+// Returns 0 if not computable.
+function dealHourlyRate(d) {
+  if (!d || !d.monthlyHours || d.monthlyHours <= 0) return 0;
+  const months = dealMonthCount(d);
+  if (!months) return 0;
+  const totalHours = months * Number(d.monthlyHours);
+  if (totalHours <= 0) return 0;
+  return (Number(d.amount) || 0) / totalHours;
 }
 
 function deleteDeal(id) {
@@ -3585,13 +3627,11 @@ function resetForm() {
   document.getElementById('f_start').value = '';
   document.getElementById('f_end').value = '';
   document.getElementById('f_amount').value = '';
+  const mEl = document.getElementById('f_monthly');
+  if (mEl) mEl.value = '';
+  const mhEl = document.getElementById('f_monthlyHours');
+  if (mhEl) mhEl.value = '';
   document.getElementById('f_note').value = '';
-  const inv = document.getElementById('f_invoiceDate');
-  const pay = document.getElementById('f_paymentDate');
-  const inst = document.getElementById('f_invoiceStatus');
-  if (inv) inv.value = '';
-  if (pay) pay.value = '';
-  if (inst) inst.value = '未請求';
   document.getElementById('saveBtn').textContent = '案件を追加';
 }
 
@@ -3693,14 +3733,22 @@ function dateStr() {
 }
 
 function buildDealsCSV() {
-  const headers = ['ステータス','クライアント','案件名','開始日','終了日','契約金額','月額','契約月数','請求予定日','入金予定日','請求ステータス','備考'];
+  const headers = ['ステータス','クライアント','案件名','開始日','終了日','契約金額','月額','契約月数','月稼働時間','時給','備考'];
   const rows = deals.map(d => {
     const start = new Date(d.start);
     const end = new Date(d.end);
-    const months = (end.getFullYear()*12+end.getMonth()) - (start.getFullYear()*12+start.getMonth()) + 1;
-    const perMonth = months > 0 ? Math.round(d.amount / months) : 0;
-    return [d.status, d.client, d.project||'', d.start, d.end, d.amount, perMonth, months,
-            d.invoiceDate||'', d.paymentDate||'', d.invoiceStatus||'未請求', d.note||''];
+    const months = !isNaN(start.getTime()) && !isNaN(end.getTime())
+      ? ((end.getFullYear()*12+end.getMonth()) - (start.getFullYear()*12+start.getMonth()) + 1)
+      : 0;
+    const perMonth = months > 0 ? Math.round((Number(d.amount) || 0) / months) : 0;
+    const hourly = dealHourlyRate(d);
+    return [
+      d.status, d.client, d.project||'', d.start, d.end,
+      d.amount, perMonth, months,
+      d.monthlyHours || 0,
+      hourly > 0 ? Math.round(hourly) : 0,
+      d.note || ''
+    ];
   });
   return toCSV([headers, ...rows]);
 }
@@ -3926,8 +3974,12 @@ function importDealsCSV(text, replace) {
   if (rows.length < 2) { alert('データ行がありません'); return; }
   // Detect format by header. Legacy: 9 columns, new: 12 columns with invoice fields
   const header = rows[0].map(c => (c || '').trim());
-  const hasInvoice = header.includes('請求予定日');
-  const expectedCols = hasInvoice ? 12 : 9;
+  // Detect each optional column independently via header names. This lets us
+  // handle legacy CSVs (9 cols), previous invoice-included CSVs (12 cols), and
+  // the new monthlyHours-included CSVs (11 cols) interchangeably.
+  const hasInvoice = header.includes('請求予定日');       // old format
+  const hasMonthlyHours = header.includes('月稼働時間'); // new format
+  const expectedCols = hasInvoice ? 12 : (hasMonthlyHours ? 11 : 9);
   const imported = [];
   const warnings = [];
   for (let i = 1; i < rows.length; i++) {
@@ -3945,14 +3997,27 @@ function importDealsCSV(text, replace) {
     if (!client) continue;
     const amountStr = String(parts[5] || '');
 
-    // Column layout (after possible merges at index 5):
-    //   0:status 1:client 2:project 3:start 4:end 5:amount 6:perMonth 7:months
-    //   8:invoiceDate(new) 9:paymentDate(new) 10:invoiceStatus(new) 11:note(new)
-    //   or 8:note (legacy)
-    const invoiceDateRaw = hasInvoice ? (parts[8]  || '').trim() : '';
-    const paymentDateRaw = hasInvoice ? (parts[9]  || '').trim() : '';
-    const invoiceStatus  = hasInvoice ? (normalizeStatusText(parts[10]) || '未請求') : '未請求';
-    const note           = hasInvoice ? (parts[11] || '').trim() : (parts[8] || '').trim();
+    // Column layouts:
+    //   Legacy (9):    ..., 5:amount 6:perMonth 7:months 8:note
+    //   Invoice (12):  ..., 5:amount 6:perMonth 7:months 8:invoiceDate 9:paymentDate 10:invoiceStatus 11:note
+    //   New (11):      ..., 5:amount 6:perMonth 7:months 8:monthlyHours 9:hourlyRate(derived, ignored) 10:note
+    let invoiceDateRaw = '';
+    let paymentDateRaw = '';
+    let invoiceStatus  = '未請求';
+    let monthlyHoursRaw = '';
+    let note = '';
+    if (hasInvoice) {
+      invoiceDateRaw = (parts[8]  || '').trim();
+      paymentDateRaw = (parts[9]  || '').trim();
+      invoiceStatus  = normalizeStatusText(parts[10]) || '未請求';
+      note           = (parts[11] || '').trim();
+    } else if (hasMonthlyHours) {
+      monthlyHoursRaw = (parts[8]  || '').trim();
+      // parts[9] is the derived hourly rate — we don't import it (recomputed)
+      note           = (parts[10] || '').trim();
+    } else {
+      note           = (parts[8] || '').trim();
+    }
 
     // Normalize status: strip BOM/zero-width/full-width spaces; fallback to 見込み中
     let statusRaw = normalizeStatusText(parts[0] || '');
@@ -3996,6 +4061,7 @@ function importDealsCSV(text, replace) {
       start: startNorm,
       end: endNorm,
       amount: amount,
+      monthlyHours: Number(String(monthlyHoursRaw).replace(/[^\d.-]/g, '')) || 0,
       invoiceDate: invoiceDate,
       paymentDate: paymentDate,
       invoiceStatus: invoiceStatus,
