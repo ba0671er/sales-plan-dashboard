@@ -1467,6 +1467,25 @@
   .invoice-status.未請求 { background: #fee2e2; color: #991b1b; }
   .invoice-status.請求済 { background: #fef3c7; color: #92400e; }
   .invoice-status.入金済 { background: #d1fae5; color: #065f46; }
+
+  /* Bulk action bar (appears when rows are selected) */
+  .bulk-action-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    box-shadow: var(--shadow);
+  }
+  .bulk-action-bar .spacer { flex: 1; }
+  .bulk-action-bar strong {
+    font-size: 16px;
+    color: var(--primary);
+  }
 </style>
 </head>
 <body>
@@ -1749,11 +1768,18 @@
         <input type="file" id="uploadFile" accept=".csv,.json" style="display:none" onchange="handleUpload(event)" />
       </div>
     </div>
+    <div id="dealsBulkBar" class="bulk-action-bar" style="display:none;">
+      <span><strong id="dealsBulkCount">0</strong> 件選択中</span>
+      <div class="spacer"></div>
+      <button type="button" class="btn-danger" onclick="bulkDeleteDeals()">🗑 選択した案件を削除</button>
+      <button type="button" class="btn-secondary" onclick="clearDealSelection()">選択解除</button>
+    </div>
     <div class="card" style="padding:0;">
       <div class="table-wrapper">
         <table id="dealsTable">
           <thead>
             <tr>
+              <th style="width:32px;"><input type="checkbox" id="selectAllDeals" onchange="toggleSelectAllDeals(this.checked)" title="すべて選択/解除" /></th>
               <th>ステータス</th>
               <th>クライアント</th>
               <th>案件名</th>
@@ -2758,6 +2784,64 @@ function healCsvRow(parts, expectedCols) {
   return parts;
 }
 
+// ===== Bulk selection for deals =====
+let selectedDealIds = new Set();
+
+function toggleDealSelection(id, checked) {
+  if (checked) selectedDealIds.add(id);
+  else selectedDealIds.delete(id);
+  updateDealsBulkBar();
+}
+
+function toggleSelectAllDeals(checked) {
+  selectedDealIds.clear();
+  if (checked) {
+    (deals || []).forEach(d => selectedDealIds.add(d.id));
+  }
+  document.querySelectorAll('.deal-row-check').forEach(cb => { cb.checked = checked; });
+  updateDealsBulkBar();
+}
+
+function clearDealSelection() {
+  selectedDealIds.clear();
+  document.querySelectorAll('.deal-row-check').forEach(cb => { cb.checked = false; });
+  const sa = document.getElementById('selectAllDeals');
+  if (sa) sa.checked = false;
+  updateDealsBulkBar();
+}
+
+function updateDealsBulkBar() {
+  const bar = document.getElementById('dealsBulkBar');
+  const count = document.getElementById('dealsBulkCount');
+  if (!bar || !count) return;
+  if (selectedDealIds.size > 0) {
+    bar.style.display = '';
+    count.textContent = selectedDealIds.size;
+  } else {
+    bar.style.display = 'none';
+  }
+  // Sync the "select all" checkbox: checked if all rows selected, otherwise unchecked
+  const sa = document.getElementById('selectAllDeals');
+  if (sa) {
+    const total = (deals || []).length;
+    sa.checked = total > 0 && selectedDealIds.size === total;
+    // Indeterminate style when partial selection
+    sa.indeterminate = selectedDealIds.size > 0 && selectedDealIds.size < total;
+  }
+}
+
+function bulkDeleteDeals() {
+  const n = selectedDealIds.size;
+  if (n === 0) return;
+  if (!confirm(`選択した ${n} 件の案件を削除します。よろしいですか？\n※ この操作は取り消せません（復元したい場合は事前にJSONバックアップしておいてください）`)) return;
+  deals = deals.filter(d => !selectedDealIds.has(d.id));
+  selectedDealIds.clear();
+  save();
+  render();
+  updateDealsBulkBar();
+  alert(`${n}件の案件を削除しました`);
+}
+
 // Invoked by the "重複削除" toolbar button
 function manualDeduplicate() {
   if (!deals || deals.length === 0) { alert('案件がまだありません'); return; }
@@ -3385,18 +3469,28 @@ function renderRanking() {
 function renderTable() {
   const tbody = document.getElementById('dealsBody');
   tbody.innerHTML = '';
+  // Drop stale selections for deals that no longer exist
+  const existingIds = new Set((deals || []).map(d => d.id));
+  selectedDealIds.forEach(id => { if (!existingIds.has(id)) selectedDealIds.delete(id); });
+
   if (deals.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">案件がまだありません。上のフォームから追加してください。</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="empty-state">案件がまだありません。上のフォームから追加してください。</td></tr>';
+    updateDealsBulkBar();
     return;
   }
   const sorted = [...deals].sort((a, b) => new Date(a.start) - new Date(b.start));
   sorted.forEach(d => {
     const start = new Date(d.start);
     const end = new Date(d.end);
-    const months = (end.getFullYear()*12+end.getMonth()) - (start.getFullYear()*12+start.getMonth()) + 1;
-    const perMonth = months > 0 ? d.amount / months : 0;
+    const validDates = !isNaN(start.getTime()) && !isNaN(end.getTime());
+    const months = validDates
+      ? ((end.getFullYear()*12+end.getMonth()) - (start.getFullYear()*12+start.getMonth()) + 1)
+      : 0;
+    const perMonth = months > 0 ? (Number(d.amount) || 0) / months : 0;
+    const isSelected = selectedDealIds.has(d.id);
     const tr = document.createElement('tr');
     tr.innerHTML = `
+      <td><input type="checkbox" class="deal-row-check" data-id="${escapeAttr(d.id)}" ${isSelected ? 'checked' : ''} onchange="toggleDealSelection('${escapeAttr(d.id)}', this.checked)"></td>
       <td><span class="status-badge badge-${d.status}">${d.status}</span></td>
       <td>${escapeHtml(d.client)}</td>
       <td>${escapeHtml(d.project || '')}</td>
@@ -3404,7 +3498,7 @@ function renderTable() {
       <td>${fmtDate(d.end)}</td>
       <td class="num">${fmtYen(d.amount)}</td>
       <td class="num">${fmtYen(perMonth)}</td>
-      <td class="num">${months}ヶ月</td>
+      <td class="num">${months > 0 ? months + 'ヶ月' : '—'}</td>
       <td>${escapeHtml(d.note || '')}</td>
       <td>
         <div class="row-actions">
@@ -3415,6 +3509,7 @@ function renderTable() {
     `;
     tbody.appendChild(tr);
   });
+  updateDealsBulkBar();
 }
 
 function escapeHtml(s) {
