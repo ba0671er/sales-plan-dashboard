@@ -914,12 +914,12 @@
   }
 
   /* Sortable headers */
-  th.sortable {
+  th.sortable, th.sortable-deal {
     cursor: pointer;
     user-select: none;
     white-space: nowrap;
   }
-  th.sortable:hover { color: var(--primary); }
+  th.sortable:hover, th.sortable-deal:hover { color: var(--primary); }
   .sort-indicator {
     display: inline-block;
     margin-left: 4px;
@@ -1492,8 +1492,13 @@
     box-shadow: 0 0 0 2px rgba(37,99,235,0.12);
   }
   .inline-edit.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .inline-edit.dt { min-width: 120px; font-size: 12px; }
-  .inline-edit.amt { min-width: 90px; }
+  .inline-edit.dt { min-width: 100px; font-size: 12px; }
+  .inline-edit.amt { min-width: 70px; }
+  .deal-date-cell { position: relative; cursor: pointer; white-space: nowrap; font-size: 12px; }
+  .deal-date-display { cursor: pointer; padding: 4px 2px; }
+  .deal-date-display:hover { color: var(--primary); text-decoration: underline; }
+  .cell-amount-display, .cell-monthly-display { cursor: pointer; padding: 4px 2px; text-align: right; display: block; font-variant-numeric: tabular-nums; }
+  .cell-amount-display:hover, .cell-monthly-display:hover { color: var(--primary); }
   .inline-edit.hr  { min-width: 60px; }
 
   /* Inline status select in deals table */
@@ -1826,19 +1831,19 @@
         <table id="dealsTable">
           <thead>
             <tr>
-              <th style="width:32px;"><input type="checkbox" id="selectAllDeals" onchange="toggleSelectAllDeals(this.checked)" title="すべて選択/解除" /></th>
-              <th>ステータス</th>
-              <th>カテゴリ</th>
-              <th>クライアント</th>
-              <th>案件名</th>
-              <th>開始</th>
-              <th>終了</th>
-              <th class="num">契約金額</th>
-              <th class="num">月額</th>
-              <th class="num">月数</th>
-              <th class="num">月稼働h</th>
+              <th style="width:30px;"><input type="checkbox" id="selectAllDeals" onchange="toggleSelectAllDeals(this.checked)" title="すべて選択/解除" /></th>
+              <th class="sortable-deal" onclick="sortDealsBy('status')">ステータス</th>
+              <th class="sortable-deal" onclick="sortDealsBy('category')">カテゴリ</th>
+              <th class="sortable-deal" onclick="sortDealsBy('client')">クライアント</th>
+              <th class="sortable-deal" style="min-width:140px;" onclick="sortDealsBy('project')">案件名</th>
+              <th class="sortable-deal" onclick="sortDealsBy('start')">開始</th>
+              <th class="sortable-deal" onclick="sortDealsBy('end')">終了</th>
+              <th class="num sortable-deal" onclick="sortDealsBy('amount')">金額(万)</th>
+              <th class="num sortable-deal" onclick="sortDealsBy('monthly')">月額(万)</th>
+              <th class="num sortable-deal" onclick="sortDealsBy('months')">月数</th>
+              <th class="num">稼働h</th>
               <th class="num">外注h</th>
-              <th class="num">時給</th>
+              <th class="num sortable-deal" onclick="sortDealsBy('hourly')">時給</th>
               <th>備考</th>
               <th></th>
             </tr>
@@ -3774,6 +3779,19 @@ function renderRanking() {
   list.innerHTML = html;
 }
 
+let dealSortField = 'start';
+let dealSortDir = 1;
+
+function sortDealsBy(field) {
+  if (dealSortField === field) {
+    dealSortDir *= -1;
+  } else {
+    dealSortField = field;
+    dealSortDir = 1;
+  }
+  renderTable();
+}
+
 function renderTable() {
   const tbody = document.getElementById('dealsBody');
   tbody.innerHTML = '';
@@ -3786,20 +3804,55 @@ function renderTable() {
     updateDealsBulkBar();
     return;
   }
-  const sorted = [...deals].sort((a, b) => new Date(a.start) - new Date(b.start));
+  const sorted = [...deals].sort((a, b) => {
+    let av, bv, cmp = 0;
+    switch (dealSortField) {
+      case 'status':
+        av = STATUSES.indexOf(a.status); bv = STATUSES.indexOf(b.status);
+        cmp = (av < 0 ? 99 : av) - (bv < 0 ? 99 : bv); break;
+      case 'category': cmp = (a.category||'').localeCompare(b.category||'','ja'); break;
+      case 'client':   cmp = (a.client||'').localeCompare(b.client||'','ja'); break;
+      case 'project':  cmp = (a.project||'').localeCompare(b.project||'','ja'); break;
+      case 'start':    cmp = (a.start||'').localeCompare(b.start||''); break;
+      case 'end':      cmp = (a.end||'').localeCompare(b.end||''); break;
+      case 'amount':   cmp = (Number(a.amount)||0) - (Number(b.amount)||0); break;
+      case 'monthly': {
+        const am = dealMonthCount(a); const bm = dealMonthCount(b);
+        const apm = am > 0 ? (Number(a.amount)||0)/am : 0;
+        const bpm = bm > 0 ? (Number(b.amount)||0)/bm : 0;
+        cmp = apm - bpm; break;
+      }
+      case 'months':   cmp = dealMonthCount(a) - dealMonthCount(b); break;
+      case 'hourly':   cmp = dealHourlyRate(a) - dealHourlyRate(b); break;
+      default:         cmp = (a.start||'').localeCompare(b.start||''); break;
+    }
+    return cmp * dealSortDir;
+  });
   sorted.forEach(d => {
     tbody.appendChild(buildDealRow(d));
   });
   updateDealsBulkBar();
 }
 
-// Build one editable deal row. All cells are inline-editable inputs.
+function fmtDateShort(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return (d.getMonth()+1) + '/' + d.getDate();
+}
+
+function fmtMan(n) {
+  const v = Number(n) || 0;
+  if (v === 0) return '';
+  return (v / 10000).toFixed(v % 10000 === 0 ? 0 : 1);
+}
+
 function buildDealRow(d) {
   const months = dealMonthCount(d);
   const perMonth = months > 0 ? (Number(d.amount) || 0) / months : 0;
   const monthlyHours = Number(d.monthlyHours) || 0;
   const hourly = dealHourlyRate(d);
-  const hourlyStr = hourly > 0 ? '¥' + Math.round(hourly).toLocaleString('ja-JP') + '/h' : '—';
+  const hourlyStr = hourly > 0 ? '¥' + Math.round(hourly).toLocaleString('ja-JP') : '—';
   const hourlyClass = hourly >= 8000 ? 'rate-good' : hourly >= 4000 ? 'rate-mid' : hourly > 0 ? 'rate-low' : '';
   const isSelected = selectedDealIds.has(d.id);
   const statusOptions = STATUSES.map(s =>
@@ -3810,35 +3863,38 @@ function buildDealRow(d) {
   const catOptions = '<option value="">(なし)</option>' + cats.map(c =>
     `<option value="${escapeAttr(c.name)}"${c.name === (d.category || '') ? ' selected' : ''}>${escapeHtml(c.name)}</option>`
   ).join('');
+  const eid = escapeAttr(d.id);
+  const amountMan = fmtMan(d.amount);
+  const monthlyMan = fmtMan(perMonth);
 
   const tr = document.createElement('tr');
   tr.setAttribute('data-deal-id', d.id);
   tr.innerHTML = `
-    <td><input type="checkbox" class="deal-row-check" data-id="${escapeAttr(d.id)}" ${isSelected ? 'checked' : ''} onchange="toggleDealSelection('${escapeAttr(d.id)}', this.checked)"></td>
+    <td><input type="checkbox" class="deal-row-check" data-id="${eid}" ${isSelected ? 'checked' : ''} onchange="toggleDealSelection('${eid}', this.checked)"></td>
     <td>
-      <select class="inline-status" style="background:${statusColor};" onchange="updateDealField('${escapeAttr(d.id)}', 'status', this.value)">
+      <select class="inline-status" style="background:${statusColor};" onchange="updateDealField('${eid}', 'status', this.value)">
         ${statusOptions}
       </select>
     </td>
     <td>
-      <select class="inline-edit" style="font-size:12px;" onchange="updateDealField('${escapeAttr(d.id)}', 'category', this.value)">
+      <select class="inline-edit" style="font-size:12px;" onchange="updateDealField('${eid}', 'category', this.value)">
         ${catOptions}
       </select>
     </td>
-    <td><input class="inline-edit" type="text" value="${escapeAttr(d.client)}" onchange="updateDealField('${escapeAttr(d.id)}', 'client', this.value)" /></td>
-    <td><input class="inline-edit" type="text" value="${escapeAttr(d.project || '')}" onchange="updateDealField('${escapeAttr(d.id)}', 'project', this.value)" /></td>
-    <td><input class="inline-edit dt" type="date" value="${escapeAttr(d.start || '')}" onchange="updateDealField('${escapeAttr(d.id)}', 'start', this.value)" /></td>
-    <td><input class="inline-edit dt" type="date" value="${escapeAttr(d.end || '')}" onchange="updateDealField('${escapeAttr(d.id)}', 'end', this.value)" /></td>
-    <td class="num"><input class="inline-edit num amt" type="number" value="${d.amount || ''}" placeholder="0" onchange="updateDealField('${escapeAttr(d.id)}', 'amount', this.value)" /></td>
-    <td class="num"><input class="inline-edit num amt cell-monthly" type="number" value="${perMonth ? Math.round(perMonth) : ''}" placeholder="0" onchange="updateDealField('${escapeAttr(d.id)}', 'monthly', this.value)" /></td>
-    <td class="num cell-months">${months > 0 ? months + 'ヶ月' : '—'}</td>
-    <td class="num"><input class="inline-edit num hr" type="number" step="0.5" value="${monthlyHours || ''}" placeholder="0" onchange="updateDealField('${escapeAttr(d.id)}', 'monthlyHours', this.value)" /></td>
-    <td class="num"><input class="inline-edit num hr" type="number" step="0.5" value="${Number(d.outsourceHours) || ''}" placeholder="0" onchange="updateDealField('${escapeAttr(d.id)}', 'outsourceHours', this.value)" /></td>
+    <td><input class="inline-edit" type="text" value="${escapeAttr(d.client)}" onchange="updateDealField('${eid}', 'client', this.value)" /></td>
+    <td><input class="inline-edit" type="text" style="min-width:120px;" value="${escapeAttr(d.project || '')}" onchange="updateDealField('${eid}', 'project', this.value)" /></td>
+    <td class="deal-date-cell" title="${escapeAttr(d.start || '')}"><input class="inline-edit dt" type="date" value="${escapeAttr(d.start || '')}" onchange="updateDealField('${eid}', 'start', this.value)" style="opacity:0;position:absolute;width:1px;height:1px;" /><span class="deal-date-display" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.focus()">${fmtDateShort(d.start)}</span></td>
+    <td class="deal-date-cell" title="${escapeAttr(d.end || '')}"><input class="inline-edit dt" type="date" value="${escapeAttr(d.end || '')}" onchange="updateDealField('${eid}', 'end', this.value)" style="opacity:0;position:absolute;width:1px;height:1px;" /><span class="deal-date-display" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.focus()">${fmtDateShort(d.end)}</span></td>
+    <td class="num"><input class="inline-edit num amt" type="number" value="${d.amount || ''}" placeholder="0" onchange="updateDealField('${eid}', 'amount', this.value)" style="opacity:0;position:absolute;width:1px;" /><span class="cell-amount-display" onclick="this.previousElementSibling.style.opacity=1;this.previousElementSibling.style.position='static';this.previousElementSibling.style.width='100%';this.previousElementSibling.focus();this.style.display='none'">${amountMan}</span></td>
+    <td class="num"><input class="inline-edit num amt cell-monthly" type="number" value="${perMonth ? Math.round(perMonth) : ''}" placeholder="0" onchange="updateDealField('${eid}', 'monthly', this.value)" style="opacity:0;position:absolute;width:1px;" /><span class="cell-monthly-display" onclick="this.previousElementSibling.style.opacity=1;this.previousElementSibling.style.position='static';this.previousElementSibling.style.width='100%';this.previousElementSibling.focus();this.style.display='none'">${monthlyMan}</span></td>
+    <td class="num cell-months">${months > 0 ? months : '—'}</td>
+    <td class="num"><input class="inline-edit num hr" type="number" step="0.5" value="${monthlyHours || ''}" placeholder="0" onchange="updateDealField('${eid}', 'monthlyHours', this.value)" /></td>
+    <td class="num"><input class="inline-edit num hr" type="number" step="0.5" value="${Number(d.outsourceHours) || ''}" placeholder="0" onchange="updateDealField('${eid}', 'outsourceHours', this.value)" /></td>
     <td class="num cell-hourly ${hourlyClass}">${hourlyStr}</td>
-    <td><input class="inline-edit" type="text" value="${escapeAttr(d.note || '')}" onchange="updateDealField('${escapeAttr(d.id)}', 'note', this.value)" /></td>
+    <td><input class="inline-edit" type="text" value="${escapeAttr(d.note || '')}" onchange="updateDealField('${eid}', 'note', this.value)" /></td>
     <td>
       <div class="row-actions">
-        <button class="icon-btn delete" onclick="deleteDeal('${escapeAttr(d.id)}')" title="削除">✕</button>
+        <button class="icon-btn delete" onclick="deleteDeal('${eid}')" title="削除">✕</button>
       </div>
     </td>
   `;
@@ -3891,18 +3947,19 @@ function refreshDealRowDerived(id) {
   const months = dealMonthCount(d);
   const perMonth = months > 0 ? (Number(d.amount) || 0) / months : 0;
   const hourly = dealHourlyRate(d);
-  // months cell
   const mCell = row.querySelector('.cell-months');
-  if (mCell) mCell.textContent = months > 0 ? months + 'ヶ月' : '—';
-  // monthly cell (keep in sync unless it's currently focused)
+  if (mCell) mCell.textContent = months > 0 ? months : '—';
   const mEl = row.querySelector('.cell-monthly');
   if (mEl && document.activeElement !== mEl) {
     mEl.value = perMonth ? Math.round(perMonth) : '';
   }
-  // hourly cell
+  const mDisp = row.querySelector('.cell-monthly-display');
+  if (mDisp) mDisp.textContent = fmtMan(perMonth);
+  const aDisp = row.querySelector('.cell-amount-display');
+  if (aDisp) aDisp.textContent = fmtMan(d.amount);
   const hCell = row.querySelector('.cell-hourly');
   if (hCell) {
-    hCell.textContent = hourly > 0 ? '¥' + Math.round(hourly).toLocaleString('ja-JP') + '/h' : '—';
+    hCell.textContent = hourly > 0 ? '¥' + Math.round(hourly).toLocaleString('ja-JP') : '—';
     hCell.classList.remove('rate-good','rate-mid','rate-low');
     if (hourly >= 8000)     hCell.classList.add('rate-good');
     else if (hourly >= 4000) hCell.classList.add('rate-mid');
@@ -4123,6 +4180,8 @@ function deleteDeal(id) {
 function resetForm() {
   editingId = null;
   document.getElementById('f_status').value = '実績';
+  const fCatReset = document.getElementById('f_category');
+  if (fCatReset) fCatReset.value = '';
   document.getElementById('f_client').value = '';
   document.getElementById('f_project').value = '';
   document.getElementById('f_start').value = '';
@@ -4236,7 +4295,7 @@ function dateStr() {
 }
 
 function buildDealsCSV() {
-  const headers = ['ステータス','クライアント','案件名','開始日','終了日','契約金額','月額','契約月数','月稼働時間','時給','備考'];
+  const headers = ['ステータス','カテゴリ','クライアント','案件名','開始日','終了日','契約金額','月額','契約月数','月稼働時間','外注時間','時給','備考'];
   const rows = deals.map(d => {
     const start = new Date(d.start);
     const end = new Date(d.end);
@@ -4246,9 +4305,10 @@ function buildDealsCSV() {
     const perMonth = months > 0 ? Math.round((Number(d.amount) || 0) / months) : 0;
     const hourly = dealHourlyRate(d);
     return [
-      d.status, d.client, d.project||'', d.start, d.end,
+      d.status, d.category || '', d.client, d.project||'', d.start, d.end,
       d.amount, perMonth, months,
       d.monthlyHours || 0,
+      d.outsourceHours || 0,
       hourly > 0 ? Math.round(hourly) : 0,
       d.note || ''
     ];
@@ -4480,9 +4540,11 @@ function importDealsCSV(text, replace) {
   // Detect each optional column independently via header names. This lets us
   // handle legacy CSVs (9 cols), previous invoice-included CSVs (12 cols), and
   // the new monthlyHours-included CSVs (11 cols) interchangeably.
-  const hasInvoice = header.includes('請求予定日');       // old format
-  const hasMonthlyHours = header.includes('月稼働時間'); // new format
-  const expectedCols = hasInvoice ? 12 : (hasMonthlyHours ? 11 : 9);
+  const hasInvoice = header.includes('請求予定日');
+  const hasMonthlyHours = header.includes('月稼働時間');
+  const hasCategory = header.includes('カテゴリ');
+  const hasOutsource = header.includes('外注時間');
+  const expectedCols = hasCategory ? 13 : (hasInvoice ? 12 : (hasMonthlyHours ? 11 : 9));
   const imported = [];
   const warnings = [];
   for (let i = 1; i < rows.length; i++) {
@@ -4496,52 +4558,50 @@ function importDealsCSV(text, replace) {
       healCsvRow(parts, expectedCols);
     }
 
-    const client = (parts[1] || '').trim();
+    const off = hasCategory ? 1 : 0;
+    const categoryVal = hasCategory ? (parts[1] || '').trim() : '';
+    const client = (parts[1 + off] || '').trim();
     if (!client) continue;
-    const amountStr = String(parts[5] || '');
+    const amountStr = String(parts[5 + off] || '');
 
-    // Column layouts:
-    //   Legacy (9):    ..., 5:amount 6:perMonth 7:months 8:note
-    //   Invoice (12):  ..., 5:amount 6:perMonth 7:months 8:invoiceDate 9:paymentDate 10:invoiceStatus 11:note
-    //   New (11):      ..., 5:amount 6:perMonth 7:months 8:monthlyHours 9:hourlyRate(derived, ignored) 10:note
     let invoiceDateRaw = '';
     let paymentDateRaw = '';
     let invoiceStatus  = '未請求';
     let monthlyHoursRaw = '';
+    let outsourceHoursRaw = '';
     let note = '';
-    if (hasInvoice) {
+    if (hasCategory) {
+      monthlyHoursRaw = (parts[9 + off] || '').trim();
+      outsourceHoursRaw = (parts[10 + off] || '').trim();
+      note = (parts[12 + off] || '').trim();
+    } else if (hasInvoice) {
       invoiceDateRaw = (parts[8]  || '').trim();
       paymentDateRaw = (parts[9]  || '').trim();
       invoiceStatus  = normalizeStatusText(parts[10]) || '未請求';
       note           = (parts[11] || '').trim();
     } else if (hasMonthlyHours) {
       monthlyHoursRaw = (parts[8]  || '').trim();
-      // parts[9] is the derived hourly rate — we don't import it (recomputed)
       note           = (parts[10] || '').trim();
     } else {
       note           = (parts[8] || '').trim();
     }
 
-    // Normalize status: strip BOM/zero-width/full-width spaces; fallback to 見込み中
     let statusRaw = normalizeStatusText(parts[0] || '');
     if (!STATUSES.includes(statusRaw)) {
       if (statusRaw) warnings.push(`行${i+1}: 不明なステータス「${statusRaw}」→ 見込み中で登録`);
       statusRaw = '見込み中';
     }
 
-    // Flexible date parsing: accepts YYYY-MM-DD / YYYY/M/D / 3月15日 / 2026年11月 etc.
-    const startNorm = parseFlexibleDate(parts[3]);
-    const endNorm   = parseFlexibleDate(parts[4]);
-    if (!startNorm) warnings.push(`行${i+1}: 開始日「${parts[3]}」を解釈できませんでした`);
-    if (!endNorm)   warnings.push(`行${i+1}: 終了日「${parts[4]}」を解釈できませんでした`);
+    const startNorm = parseFlexibleDate(parts[3 + off]);
+    const endNorm   = parseFlexibleDate(parts[4 + off]);
+    if (!startNorm) warnings.push(`行${i+1}: 開始日を解釈できませんでした`);
+    if (!endNorm)   warnings.push(`行${i+1}: 終了日を解釈できませんでした`);
     const invoiceDate = parseFlexibleDate(invoiceDateRaw);
     const paymentDate = parseFlexibleDate(paymentDateRaw);
 
-    // Amount: auto-compute if empty but perMonth + months (or dates) are provided.
-    // This lets CSVs from spreadsheets that only filled 月額 / 契約月数 still work.
     let amount = Number(String(amountStr).replace(/[^\d.-]/g, '')) || 0;
-    const perMonth = Number(String(parts[6] || '').replace(/[^\d.-]/g, '')) || 0;
-    const monthsFromCol = Number(String(parts[7] || '').replace(/[^\d.-]/g, '')) || 0;
+    const perMonth = Number(String(parts[6 + off] || '').replace(/[^\d.-]/g, '')) || 0;
+    const monthsFromCol = Number(String(parts[7 + off] || '').replace(/[^\d.-]/g, '')) || 0;
     if (!amount) {
       if (perMonth > 0 && monthsFromCol > 0) {
         amount = Math.round(perMonth * monthsFromCol);
@@ -4559,12 +4619,14 @@ function importDealsCSV(text, replace) {
     imported.push({
       id: String(Date.now()) + i + Math.random().toString(36).slice(2,6),
       status: statusRaw,
+      category: categoryVal,
       client: client,
-      project: (parts[2] || '').trim(),
+      project: (parts[2 + off] || '').trim(),
       start: startNorm,
       end: endNorm,
       amount: amount,
       monthlyHours: Number(String(monthlyHoursRaw).replace(/[^\d.-]/g, '')) || 0,
+      outsourceHours: Number(String(outsourceHoursRaw).replace(/[^\d.-]/g, '')) || 0,
       invoiceDate: invoiceDate,
       paymentDate: paymentDate,
       invoiceStatus: invoiceStatus,
