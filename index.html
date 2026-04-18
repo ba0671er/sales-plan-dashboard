@@ -1492,13 +1492,9 @@
     box-shadow: 0 0 0 2px rgba(37,99,235,0.12);
   }
   .inline-edit.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .inline-edit.dt { min-width: 100px; font-size: 12px; }
-  .inline-edit.amt { min-width: 70px; }
-  .deal-date-cell { position: relative; cursor: pointer; white-space: nowrap; font-size: 12px; }
-  .deal-date-display { cursor: pointer; padding: 4px 2px; }
-  .deal-date-display:hover { color: var(--primary); text-decoration: underline; }
-  .cell-amount-display, .cell-monthly-display { cursor: pointer; padding: 4px 2px; text-align: right; display: block; font-variant-numeric: tabular-nums; }
-  .cell-amount-display:hover, .cell-monthly-display:hover { color: var(--primary); }
+  .inline-edit.dt { width: 110px; font-size: 11px; }
+  .inline-edit.amt { min-width: 65px; }
+  .inline-edit.man { width: 60px; font-size: 12px; text-align: right; }
   .inline-edit.hr  { min-width: 60px; }
 
   /* Inline status select in deals table */
@@ -3834,17 +3830,16 @@ function renderTable() {
   updateDealsBulkBar();
 }
 
-function fmtDateShort(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  return (d.getMonth()+1) + '/' + d.getDate();
-}
-
-function fmtMan(n) {
+function toMan(n) {
   const v = Number(n) || 0;
   if (v === 0) return '';
-  return (v / 10000).toFixed(v % 10000 === 0 ? 0 : 1);
+  const m = v / 10000;
+  return m % 1 === 0 ? String(m) : m.toFixed(1);
+}
+
+function fromMan(s) {
+  const v = Number(String(s).replace(/[^\d.-]/g, '')) || 0;
+  return Math.round(v * 10000);
 }
 
 function buildDealRow(d) {
@@ -3864,8 +3859,6 @@ function buildDealRow(d) {
     `<option value="${escapeAttr(c.name)}"${c.name === (d.category || '') ? ' selected' : ''}>${escapeHtml(c.name)}</option>`
   ).join('');
   const eid = escapeAttr(d.id);
-  const amountMan = fmtMan(d.amount);
-  const monthlyMan = fmtMan(perMonth);
 
   const tr = document.createElement('tr');
   tr.setAttribute('data-deal-id', d.id);
@@ -3883,10 +3876,10 @@ function buildDealRow(d) {
     </td>
     <td><input class="inline-edit" type="text" value="${escapeAttr(d.client)}" onchange="updateDealField('${eid}', 'client', this.value)" /></td>
     <td><input class="inline-edit" type="text" style="min-width:120px;" value="${escapeAttr(d.project || '')}" onchange="updateDealField('${eid}', 'project', this.value)" /></td>
-    <td class="deal-date-cell" title="${escapeAttr(d.start || '')}"><input class="inline-edit dt" type="date" value="${escapeAttr(d.start || '')}" onchange="updateDealField('${eid}', 'start', this.value)" style="opacity:0;position:absolute;width:1px;height:1px;" /><span class="deal-date-display" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.focus()">${fmtDateShort(d.start)}</span></td>
-    <td class="deal-date-cell" title="${escapeAttr(d.end || '')}"><input class="inline-edit dt" type="date" value="${escapeAttr(d.end || '')}" onchange="updateDealField('${eid}', 'end', this.value)" style="opacity:0;position:absolute;width:1px;height:1px;" /><span class="deal-date-display" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.focus()">${fmtDateShort(d.end)}</span></td>
-    <td class="num"><input class="inline-edit num amt" type="number" value="${d.amount || ''}" placeholder="0" onchange="updateDealField('${eid}', 'amount', this.value)" style="opacity:0;position:absolute;width:1px;" /><span class="cell-amount-display" onclick="this.previousElementSibling.style.opacity=1;this.previousElementSibling.style.position='static';this.previousElementSibling.style.width='100%';this.previousElementSibling.focus();this.style.display='none'">${amountMan}</span></td>
-    <td class="num"><input class="inline-edit num amt cell-monthly" type="number" value="${perMonth ? Math.round(perMonth) : ''}" placeholder="0" onchange="updateDealField('${eid}', 'monthly', this.value)" style="opacity:0;position:absolute;width:1px;" /><span class="cell-monthly-display" onclick="this.previousElementSibling.style.opacity=1;this.previousElementSibling.style.position='static';this.previousElementSibling.style.width='100%';this.previousElementSibling.focus();this.style.display='none'">${monthlyMan}</span></td>
+    <td><input class="inline-edit dt" type="date" value="${escapeAttr(d.start || '')}" onchange="updateDealField('${eid}', 'start', this.value)" /></td>
+    <td><input class="inline-edit dt" type="date" value="${escapeAttr(d.end || '')}" onchange="updateDealField('${eid}', 'end', this.value)" /></td>
+    <td class="num"><input class="inline-edit man" type="number" step="0.1" value="${toMan(d.amount)}" onchange="updateDealField('${eid}', 'amount', String(fromMan(this.value)))" /></td>
+    <td class="num"><input class="inline-edit man cell-monthly" type="number" step="0.1" value="${toMan(perMonth)}" onchange="updateDealField('${eid}', 'monthly', String(fromMan(this.value)))" /></td>
     <td class="num cell-months">${months > 0 ? months : '—'}</td>
     <td class="num"><input class="inline-edit num hr" type="number" step="0.5" value="${monthlyHours || ''}" placeholder="0" onchange="updateDealField('${eid}', 'monthlyHours', this.value)" /></td>
     <td class="num"><input class="inline-edit num hr" type="number" step="0.5" value="${Number(d.outsourceHours) || ''}" placeholder="0" onchange="updateDealField('${eid}', 'outsourceHours', this.value)" /></td>
@@ -3951,12 +3944,8 @@ function refreshDealRowDerived(id) {
   if (mCell) mCell.textContent = months > 0 ? months : '—';
   const mEl = row.querySelector('.cell-monthly');
   if (mEl && document.activeElement !== mEl) {
-    mEl.value = perMonth ? Math.round(perMonth) : '';
+    mEl.value = toMan(perMonth);
   }
-  const mDisp = row.querySelector('.cell-monthly-display');
-  if (mDisp) mDisp.textContent = fmtMan(perMonth);
-  const aDisp = row.querySelector('.cell-amount-display');
-  if (aDisp) aDisp.textContent = fmtMan(d.amount);
   const hCell = row.querySelector('.cell-hourly');
   if (hCell) {
     hCell.textContent = hourly > 0 ? '¥' + Math.round(hourly).toLocaleString('ja-JP') : '—';
