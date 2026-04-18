@@ -3501,13 +3501,13 @@ function renderTargetsEditor() {
     const byCat = data.monthlyTargetsByCategory || {};
     const totals = data.monthlyTargets || new Array(12).fill(0);
 
-    let html = '<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px; min-width:800px;">';
+    let html = '<table style="width:100%; border-collapse:collapse; font-size:12px; table-layout:fixed;">';
     html += '<thead><tr style="border-bottom:2px solid var(--border);">';
-    html += '<th style="padding:6px 8px; text-align:left; min-width:90px; white-space:nowrap;">カテゴリ</th>';
+    html += '<th style="padding:6px 6px; text-align:left; width:80px; white-space:nowrap;">カテゴリ</th>';
     MONTHS.forEach(m => {
       html += `<th style="padding:6px 4px; text-align:center; font-size:11px; white-space:nowrap;">${m.getMonth()+1}月</th>`;
     });
-    html += '<th style="padding:6px 8px; text-align:right; white-space:nowrap;">年間計</th>';
+    html += '<th style="padding:6px 6px; text-align:right; width:80px; white-space:nowrap;">年間計</th>';
     html += '</tr></thead><tbody>';
 
     cats.forEach(c => {
@@ -3517,7 +3517,7 @@ function renderTargetsEditor() {
       html += `<td style="padding:4px 8px; font-weight:600; white-space:nowrap;"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${c.color}; margin-right:4px;"></span>${escapeHtml(c.name)}</td>`;
       MONTHS.forEach((m, i) => {
         const v = catTargets[i] || '';
-        html += `<td style="padding:2px;"><input type="number" value="${v}" placeholder="0" style="width:100%; padding:4px 2px; border:1px solid var(--border); border-radius:3px; font-size:11px; text-align:right; box-sizing:border-box;" oninput="updateCategoryMonthTarget('${escapeAttr(c.name)}', ${i}, this.value)" /></td>`;
+        html += `<td style="padding:2px 1px;"><input type="number" value="${v}" placeholder="0" style="width:100%; padding:5px 4px; border:1px solid var(--border); border-radius:3px; font-size:12px; text-align:right; box-sizing:border-box;" oninput="updateCategoryMonthTarget('${escapeAttr(c.name)}', ${i}, this.value)" /></td>`;
       });
       html += `<td class="cat-annual-sum" data-cat="${escapeAttr(c.name)}" style="padding:4px 8px; text-align:right; font-weight:600; color:var(--text-sub); white-space:nowrap;">${fmtYen(catSum)}</td>`;
       html += '</tr>';
@@ -3532,7 +3532,7 @@ function renderTargetsEditor() {
     html += `<td style="padding:5px 8px; text-align:right; font-weight:700; color:var(--primary);">${fmtYen(totalSum)}</td>`;
     html += '</tr>';
 
-    html += '</tbody></table></div>';
+    html += '</tbody></table>';
     editor.innerHTML = html;
   } catch (e) {
     console.error('renderTargetsEditor failed:', e);
