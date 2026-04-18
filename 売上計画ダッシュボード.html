@@ -3501,7 +3501,7 @@ function renderTargetsEditor() {
     const byCat = data.monthlyTargetsByCategory || {};
     const totals = data.monthlyTargets || new Array(12).fill(0);
 
-    let html = '<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px;">';
+    let html = '<table style="width:100%; border-collapse:collapse; font-size:12px;">';
     html += '<thead><tr style="border-bottom:2px solid var(--border);">';
     html += '<th style="padding:6px 6px; text-align:left; white-space:nowrap;">カテゴリ</th>';
     MONTHS.forEach(m => {
@@ -3532,7 +3532,7 @@ function renderTargetsEditor() {
     html += `<td style="padding:5px 6px; text-align:right; font-weight:700; color:var(--primary);">${fmtYen(totalSum)}</td>`;
     html += '</tr>';
 
-    html += '</tbody></table></div>';
+    html += '</tbody></table>';
     editor.innerHTML = html;
   } catch (e) {
     console.error('renderTargetsEditor failed:', e);
