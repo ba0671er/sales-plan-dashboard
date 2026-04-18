@@ -3490,8 +3490,6 @@ function renderYoYChart() {
   });
 }
 
-let targetEditorCategory = '';
-
 function renderTargetsEditor() {
   const editor = document.getElementById('monthlyTargetsEditor');
   if (!editor) return;
@@ -3501,58 +3499,41 @@ function renderTargetsEditor() {
     const data = currentData();
     const cats = getTaskCategories();
     const byCat = data.monthlyTargetsByCategory || {};
+    const totals = data.monthlyTargets || new Array(12).fill(0);
 
-    const tabBar = document.createElement('div');
-    tabBar.style.cssText = 'display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px;';
-    const allBtn = document.createElement('button');
-    allBtn.className = 'btn-secondary';
-    allBtn.textContent = '合計';
-    allBtn.style.cssText = targetEditorCategory === '' ? 'background:var(--primary); color:white;' : '';
-    allBtn.onclick = () => { targetEditorCategory = ''; renderTargetsEditor(); };
-    tabBar.appendChild(allBtn);
+    let html = '<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px; min-width:800px;">';
+    html += '<thead><tr style="border-bottom:2px solid var(--border);">';
+    html += '<th style="padding:6px 8px; text-align:left; min-width:90px; white-space:nowrap;">カテゴリ</th>';
+    MONTHS.forEach(m => {
+      html += `<th style="padding:6px 4px; text-align:center; font-size:11px; white-space:nowrap;">${m.getMonth()+1}月</th>`;
+    });
+    html += '<th style="padding:6px 8px; text-align:right; white-space:nowrap;">年間計</th>';
+    html += '</tr></thead><tbody>';
+
     cats.forEach(c => {
-      const btn = document.createElement('button');
-      btn.className = 'btn-secondary';
-      btn.textContent = c.name;
-      btn.style.cssText = targetEditorCategory === c.name ? 'background:' + c.color + '; color:' + textColorForBg(c.color) + ';' : '';
-      btn.onclick = () => { targetEditorCategory = c.name; renderTargetsEditor(); };
-      tabBar.appendChild(btn);
+      const catTargets = byCat[c.name] || new Array(12).fill(0);
+      const catSum = catTargets.reduce((a, b) => a + (Number(b) || 0), 0);
+      html += `<tr style="border-bottom:1px solid var(--border);">`;
+      html += `<td style="padding:4px 8px; font-weight:600; white-space:nowrap;"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${c.color}; margin-right:4px;"></span>${escapeHtml(c.name)}</td>`;
+      MONTHS.forEach((m, i) => {
+        const v = catTargets[i] || '';
+        html += `<td style="padding:2px;"><input type="number" value="${v}" placeholder="0" style="width:100%; padding:4px 2px; border:1px solid var(--border); border-radius:3px; font-size:11px; text-align:right; box-sizing:border-box;" oninput="updateCategoryMonthTarget('${escapeAttr(c.name)}', ${i}, this.value)" /></td>`;
+      });
+      html += `<td class="cat-annual-sum" data-cat="${escapeAttr(c.name)}" style="padding:4px 8px; text-align:right; font-weight:600; color:var(--text-sub); white-space:nowrap;">${fmtYen(catSum)}</td>`;
+      html += '</tr>';
     });
-    editor.appendChild(tabBar);
 
-    const isTotal = targetEditorCategory === '';
-    const targets = isTotal ? (data.monthlyTargets || new Array(12).fill(0)) : (byCat[targetEditorCategory] || new Array(12).fill(0));
-    const grid = document.createElement('div');
-    grid.className = 'monthly-targets-editor';
-    grid.style.marginTop = '0';
+    const totalSum = totals.reduce((a, b) => a + (Number(b) || 0), 0);
+    html += '<tr id="targetTotalsRow" style="border-top:2px solid var(--primary); background:#f0f4ff;">';
+    html += '<td style="padding:5px 8px; font-weight:700; color:var(--primary);">合計</td>';
     MONTHS.forEach((m, i) => {
-      const div = document.createElement('div');
-      div.className = 'month-target';
-      const val = targets[i] || '';
-      if (isTotal) {
-        div.innerHTML = `
-          <label>${m.getFullYear()}/${m.getMonth()+1}</label>
-          <input type="number" value="${val}" placeholder="0"
-                 oninput="updateMonthTarget(${i}, this.value)" />
-        `;
-      } else {
-        div.innerHTML = `
-          <label>${m.getFullYear()}/${m.getMonth()+1}</label>
-          <input type="number" value="${val}" placeholder="0"
-                 oninput="updateCategoryMonthTarget('${escapeAttr(targetEditorCategory)}', ${i}, this.value)" />
-        `;
-      }
-      grid.appendChild(div);
+      html += `<td style="padding:5px 4px; text-align:right; font-weight:700; font-size:11px;">${totals[i] ? Math.round(totals[i]).toLocaleString() : '0'}</td>`;
     });
-    editor.appendChild(grid);
+    html += `<td style="padding:5px 8px; text-align:right; font-weight:700; color:var(--primary);">${fmtYen(totalSum)}</td>`;
+    html += '</tr>';
 
-    if (!isTotal) {
-      const catTotal = targets.reduce((a, b) => a + (Number(b) || 0), 0);
-      const note = document.createElement('div');
-      note.style.cssText = 'font-size:11px; color:var(--text-sub); margin-top:4px;';
-      note.textContent = `${targetEditorCategory} の年間合計: ${fmtYen(catTotal)}`;
-      editor.appendChild(note);
-    }
+    html += '</tbody></table></div>';
+    editor.innerHTML = html;
   } catch (e) {
     console.error('renderTargetsEditor failed:', e);
     editor.innerHTML = '<div style="color:var(--danger); padding:10px; font-size:12px;">月別目標の表示に失敗しました: ' + (e && e.message) + '</div>';
@@ -3580,8 +3561,31 @@ function updateCategoryMonthTarget(catName, i, val) {
   data.monthlyTargetsByCategory[catName][i] = Number(val) || 0;
   recalcTotalTargets();
   save();
+  refreshTargetTotalsRow();
   renderKPIs();
   renderMonthlyChart();
+}
+
+function refreshTargetTotalsRow() {
+  const row = document.getElementById('targetTotalsRow');
+  if (!row) return;
+  const data = currentData();
+  const totals = data.monthlyTargets || new Array(12).fill(0);
+  const cells = row.querySelectorAll('td');
+  if (cells.length < 14) return;
+  MONTHS.forEach((m, i) => {
+    cells[i + 1].textContent = totals[i] ? Math.round(totals[i]).toLocaleString() : '0';
+  });
+  const totalSum = totals.reduce((a, b) => a + (Number(b) || 0), 0);
+  cells[13].textContent = fmtYen(totalSum);
+  const catRows = document.querySelectorAll('.cat-annual-sum');
+  const byCat = data.monthlyTargetsByCategory || {};
+  catRows.forEach(td => {
+    const name = td.dataset.cat;
+    if (!name) return;
+    const catTargets = byCat[name] || [];
+    td.textContent = fmtYen(catTargets.reduce((a, b) => a + (Number(b) || 0), 0));
+  });
 }
 
 function updateMonthTarget(i, val) {
@@ -3596,10 +3600,14 @@ function splitAnnualTarget() {
   const val = Number(input.value) || 0;
   if (val <= 0) { alert('年間目標額を入力してください'); return; }
   const perMonth = Math.round(val / 12);
-  if (targetEditorCategory) {
+  const cats = getTaskCategories();
+  if (cats.length > 0) {
+    const perCat = Math.round(perMonth / cats.length);
     const data = currentData();
     if (!data.monthlyTargetsByCategory) data.monthlyTargetsByCategory = {};
-    data.monthlyTargetsByCategory[targetEditorCategory] = new Array(12).fill(perMonth);
+    cats.forEach(c => {
+      data.monthlyTargetsByCategory[c.name] = new Array(12).fill(perCat);
+    });
     recalcTotalTargets();
   } else {
     monthlyTargets = new Array(12).fill(perMonth);
@@ -3611,18 +3619,10 @@ function splitAnnualTarget() {
 }
 
 function clearTargets() {
-  if (!confirm('月別目標を全てクリアしますか？')) return;
-  if (targetEditorCategory) {
-    const data = currentData();
-    if (data.monthlyTargetsByCategory) {
-      data.monthlyTargetsByCategory[targetEditorCategory] = new Array(12).fill(0);
-    }
-    recalcTotalTargets();
-  } else {
-    monthlyTargets = new Array(12).fill(0);
-    const data = currentData();
-    if (data.monthlyTargetsByCategory) data.monthlyTargetsByCategory = {};
-  }
+  if (!confirm('全カテゴリの月別目標をクリアしますか？')) return;
+  monthlyTargets = new Array(12).fill(0);
+  const data = currentData();
+  if (data.monthlyTargetsByCategory) data.monthlyTargetsByCategory = {};
   document.getElementById('annualTargetInput').value = '';
   save();
   renderTargetsEditor();
