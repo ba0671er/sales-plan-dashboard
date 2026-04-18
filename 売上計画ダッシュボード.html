@@ -309,14 +309,14 @@
   .monthly-targets-editor {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
-    gap: 8px;
-    margin-top: 12px;
+    gap: 6px;
+    margin-top: 8px;
   }
 
   .month-target {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
   }
 
   .month-target label {
@@ -328,7 +328,7 @@
 
   .month-target input {
     width: 100%;
-    padding: 6px 4px;
+    padding: 5px 4px;
     border: 1px solid var(--border);
     border-radius: 4px;
     font-size: 11px;
@@ -1675,9 +1675,17 @@
           <h3 class="chart-title">ステータス別サマリ</h3>
           <div class="status-list" id="statusList"></div>
         </div>
-        <div class="card">
-          <h3 class="chart-title">クライアント別 売上TOP5</h3>
-          <div class="ranking-list" id="rankingList"></div>
+        <div class="card" style="grid-column: 1/-1;">
+          <h3 class="chart-title">クライアント別 売上一覧</h3>
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap;">
+            <label style="font-size:12px; color:var(--text-sub);">期間:</label>
+            <select id="rankingMonthFrom" onchange="renderRanking()" style="padding:4px 8px; border:1px solid var(--border); border-radius:4px; font-size:12px;"></select>
+            <span style="font-size:12px;">〜</span>
+            <select id="rankingMonthTo" onchange="renderRanking()" style="padding:4px 8px; border:1px solid var(--border); border-radius:4px; font-size:12px;"></select>
+          </div>
+          <div style="overflow-x:auto;">
+            <div class="ranking-list" id="rankingList"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1729,6 +1737,10 @@
           <label>月稼働時間（h）<span style="font-weight:400; color:var(--text-sub); font-size:10px;">※時給の算出に使用</span></label>
           <input type="number" id="f_monthlyHours" placeholder="例: 20" step="0.5" />
         </div>
+        <div class="form-field">
+          <label>うち外注（h）<span style="font-weight:400; color:var(--text-sub); font-size:10px;">※実稼働 = 稼働 - 外注</span></label>
+          <input type="number" id="f_outsourceHours" placeholder="0" step="0.5" />
+        </div>
         <div class="form-field full">
           <label>備考</label>
           <textarea id="f_note" rows="2" placeholder="自由記入"></textarea>
@@ -1742,6 +1754,12 @@
   </div>
 
   <!-- Deals Table -->
+  <!-- Work Hours Summary -->
+  <div class="section">
+    <h2 class="section-title">稼働時間サマリ</h2>
+    <div class="card" id="workHoursSummaryCard" style="overflow-x:auto;"></div>
+  </div>
+
   <div class="section">
     <div class="toolbar">
       <h2 class="section-title" style="margin:0;">案件一覧</h2>
@@ -1819,6 +1837,7 @@
               <th class="num">月額</th>
               <th class="num">月数</th>
               <th class="num">月稼働h</th>
+              <th class="num">外注h</th>
               <th class="num">時給</th>
               <th>備考</th>
               <th></th>
@@ -2364,6 +2383,7 @@ function ensureFY(fy) {
     if (typeof d.paymentDate === 'undefined')   d.paymentDate = '';
     if (typeof d.invoiceStatus === 'undefined') d.invoiceStatus = '未請求';
     if (typeof d.monthlyHours === 'undefined')  d.monthlyHours = 0;
+    if (typeof d.outsourceHours === 'undefined') d.outsourceHours = 0;
     if (typeof d.category === 'undefined')      d.category = '';
   });
   if (!store.fiscalYears.includes(fy)) {
@@ -3121,8 +3141,7 @@ function clientRanking() {
     map[d.client] = (map[d.client] || 0) + dealFYTotal(d);
   });
   return Object.entries(map)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+    .sort((a, b) => b[1] - a[1]);
 }
 
 // ========== Formatting ==========
@@ -3156,6 +3175,7 @@ function render() {
   safeCall('renderYoYChart',       renderYoYChart);
   safeCall('renderStatusSummary',  renderStatusSummary);
   safeCall('renderRanking',        renderRanking);
+  safeCall('renderWorkHoursSummary', renderWorkHoursSummary);
   safeCall('renderTable',          renderTable);
 }
 
@@ -3482,7 +3502,7 @@ function renderTargetsEditor() {
     const byCat = data.monthlyTargetsByCategory || {};
 
     const tabBar = document.createElement('div');
-    tabBar.style.cssText = 'display:flex; gap:4px; flex-wrap:wrap; margin-bottom:10px;';
+    tabBar.style.cssText = 'display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px;';
     const allBtn = document.createElement('button');
     allBtn.className = 'btn-secondary';
     allBtn.textContent = '合計';
@@ -3650,24 +3670,108 @@ function renderStatusSummary() {
   });
 }
 
+function populateRankingMonthSelects() {
+  const fromSel = document.getElementById('rankingMonthFrom');
+  const toSel = document.getElementById('rankingMonthTo');
+  if (!fromSel || !toSel) return;
+  const curFrom = fromSel.value;
+  const curTo = toSel.value;
+  fromSel.innerHTML = '';
+  toSel.innerHTML = '';
+  MONTHS.forEach((m, i) => {
+    const val = `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`;
+    const label = `${m.getFullYear()}/${m.getMonth()+1}`;
+    fromSel.innerHTML += `<option value="${val}">${label}</option>`;
+    toSel.innerHTML += `<option value="${val}">${label}</option>`;
+  });
+  fromSel.value = curFrom || fromSel.options[0].value;
+  toSel.value = curTo || toSel.options[toSel.options.length-1].value;
+}
+
 function renderRanking() {
-  const ranking = clientRanking();
+  populateRankingMonthSelects();
   const list = document.getElementById('rankingList');
   list.innerHTML = '';
-  if (ranking.length === 0) {
+  const filtered = getFilteredDeals();
+  if (filtered.length === 0) {
     list.innerHTML = '<div class="empty-state">案件がまだありません</div>';
     return;
   }
-  ranking.forEach(([name, amount], i) => {
-    const row = document.createElement('div');
-    row.className = 'ranking-row' + (i < 3 ? ` top${i+1}` : '');
-    row.innerHTML = `
-      <div class="ranking-num">${i+1}</div>
-      <div class="ranking-name">${escapeHtml(name)}</div>
-      <div class="ranking-value">${fmtYen(amount)}</div>
-    `;
-    list.appendChild(row);
+
+  const fromSel = document.getElementById('rankingMonthFrom');
+  const toSel = document.getElementById('rankingMonthTo');
+  const fromVal = fromSel ? fromSel.value : '';
+  const toVal = toSel ? toSel.value : '';
+  const fromDate = fromVal ? new Date(fromVal + '-01') : MONTHS[0];
+  const toDate = toVal ? new Date(toVal + '-01') : MONTHS[11];
+  const fromM = fromDate.getFullYear() * 12 + fromDate.getMonth();
+  const toM = toDate.getFullYear() * 12 + toDate.getMonth();
+  const rangeMonths = [];
+  for (let ym = fromM; ym <= toM; ym++) {
+    rangeMonths.push(new Date(Math.floor(ym / 12), ym % 12, 1));
+  }
+  const DAY = 24 * 60 * 60 * 1000;
+
+  const clientMap = {};
+  filtered.forEach(d => {
+    const name = d.client || '(不明)';
+    if (!clientMap[name]) clientMap[name] = { totalAmount: 0, jissekiAmount: 0, mikomiAmount: 0, totalHours: 0, outsourceHours: 0, deals: [] };
+    const entry = clientMap[name];
+    entry.deals.push(d);
+    const monthlyContribs = dealMonthlyForMonths(d, rangeMonths);
+    const rangeAmount = monthlyContribs.reduce((a, b) => a + b, 0);
+    entry.totalAmount += rangeAmount;
+    if (d.status === '実績') entry.jissekiAmount += rangeAmount;
+    else entry.mikomiAmount += rangeAmount;
+    const s = new Date(d.start); s.setHours(0,0,0,0);
+    const e = new Date(d.end); e.setHours(0,0,0,0);
+    rangeMonths.forEach(m => {
+      const mStart = new Date(m.getFullYear(), m.getMonth(), 1);
+      const mEnd = new Date(m.getFullYear(), m.getMonth() + 1, 0);
+      mStart.setHours(0,0,0,0); mEnd.setHours(0,0,0,0);
+      if (e < mStart || s > mEnd) return;
+      const oS = s > mStart ? s : mStart;
+      const oE = e < mEnd ? e : mEnd;
+      const oDays = Math.round((oE.getTime() - oS.getTime()) / DAY) + 1;
+      if (oDays <= 0) return;
+      const ratio = oDays / mEnd.getDate();
+      entry.totalHours += (Number(d.monthlyHours) || 0) * ratio;
+      entry.outsourceHours += (Number(d.outsourceHours) || 0) * ratio;
+    });
   });
+
+  const sorted = Object.entries(clientMap).sort((a, b) => b[1].totalAmount - a[1].totalAmount);
+  const numMonths = rangeMonths.length || 1;
+
+  let html = `<table style="width:100%; border-collapse:collapse; font-size:12px;">
+    <thead><tr style="background:#f8fafc; border-bottom:2px solid var(--border);">
+      <th style="padding:6px 8px; text-align:left;">#</th>
+      <th style="padding:6px 8px; text-align:left;">クライアント</th>
+      <th style="padding:6px 8px; text-align:right;">合計</th>
+      <th style="padding:6px 8px; text-align:right;">月額平均</th>
+      <th style="padding:6px 8px; text-align:right;">実績</th>
+      <th style="padding:6px 8px; text-align:right;">見込み</th>
+      <th style="padding:6px 8px; text-align:right;">稼働h</th>
+      <th style="padding:6px 8px; text-align:right;">時給</th>
+    </tr></thead><tbody>`;
+  sorted.forEach(([name, c], i) => {
+    const monthlyAvg = c.totalAmount / numMonths;
+    const netHours = c.totalHours - c.outsourceHours;
+    const hourly = netHours > 0 ? c.totalAmount / netHours : 0;
+    const hourlyClass = hourly >= 8000 ? 'color:#10b981' : hourly >= 4000 ? 'color:#2563eb' : hourly > 0 ? 'color:#ef4444' : '';
+    html += `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:5px 8px; color:var(--text-sub);">${i+1}</td>
+      <td style="padding:5px 8px; font-weight:600;">${escapeHtml(name)}</td>
+      <td style="padding:5px 8px; text-align:right;">${fmtYen(c.totalAmount)}</td>
+      <td style="padding:5px 8px; text-align:right; color:var(--text-sub);">${fmtYen(monthlyAvg)}</td>
+      <td style="padding:5px 8px; text-align:right; color:var(--status-jisseki);">${fmtYen(c.jissekiAmount)}</td>
+      <td style="padding:5px 8px; text-align:right; color:#f59e0b;">${fmtYen(c.mikomiAmount)}</td>
+      <td style="padding:5px 8px; text-align:right;">${c.totalHours > 0 ? c.totalHours.toFixed(1) + 'h' : '—'}</td>
+      <td style="padding:5px 8px; text-align:right; font-weight:600; ${hourlyClass}">${hourly > 0 ? '¥' + Math.round(hourly).toLocaleString() + '/h' : '—'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  list.innerHTML = html;
 }
 
 function renderTable() {
@@ -3678,7 +3782,7 @@ function renderTable() {
   selectedDealIds.forEach(id => { if (!existingIds.has(id)) selectedDealIds.delete(id); });
 
   if (deals.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="13" class="empty-state">案件がまだありません。上のフォームから追加してください。</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="15" class="empty-state">案件がまだありません。上のフォームから追加してください。</td></tr>';
     updateDealsBulkBar();
     return;
   }
@@ -3729,6 +3833,7 @@ function buildDealRow(d) {
     <td class="num"><input class="inline-edit num amt cell-monthly" type="number" value="${perMonth ? Math.round(perMonth) : ''}" placeholder="0" onchange="updateDealField('${escapeAttr(d.id)}', 'monthly', this.value)" /></td>
     <td class="num cell-months">${months > 0 ? months + 'ヶ月' : '—'}</td>
     <td class="num"><input class="inline-edit num hr" type="number" step="0.5" value="${monthlyHours || ''}" placeholder="0" onchange="updateDealField('${escapeAttr(d.id)}', 'monthlyHours', this.value)" /></td>
+    <td class="num"><input class="inline-edit num hr" type="number" step="0.5" value="${Number(d.outsourceHours) || ''}" placeholder="0" onchange="updateDealField('${escapeAttr(d.id)}', 'outsourceHours', this.value)" /></td>
     <td class="num cell-hourly ${hourlyClass}">${hourlyStr}</td>
     <td><input class="inline-edit" type="text" value="${escapeAttr(d.note || '')}" onchange="updateDealField('${escapeAttr(d.id)}', 'note', this.value)" /></td>
     <td>
@@ -3747,7 +3852,7 @@ function updateDealField(id, field, rawValue) {
   const d = deals.find(x => x.id === id);
   if (!d) return;
   let value = rawValue;
-  if (field === 'amount' || field === 'monthly' || field === 'monthlyHours') {
+  if (field === 'amount' || field === 'monthly' || field === 'monthlyHours' || field === 'outsourceHours') {
     value = Number(String(value).replace(/[^\d.-]/g, '')) || 0;
   }
   if (field === 'monthly') {
@@ -3813,6 +3918,91 @@ function safeRerenderSalesAggregates() {
   safeCall('renderYoYChart',      renderYoYChart);
   safeCall('renderStatusSummary', renderStatusSummary);
   safeCall('renderRanking',       renderRanking);
+  safeCall('renderWorkHoursSummary', renderWorkHoursSummary);
+}
+
+function renderWorkHoursSummary() {
+  const card = document.getElementById('workHoursSummaryCard');
+  if (!card) return;
+  const now = new Date();
+  const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const DAY = 24 * 60 * 60 * 1000;
+
+  function calcMonthHours(targetMonth) {
+    const mStart = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 1);
+    const mEnd = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0);
+    mStart.setHours(0,0,0,0);
+    mEnd.setHours(0,0,0,0);
+    const daysInMonth = mEnd.getDate();
+    const result = { jisseki: {h:0, out:0}, mikomi: {h:0, out:0} };
+    deals.forEach(d => {
+      const s = new Date(d.start); s.setHours(0,0,0,0);
+      const e = new Date(d.end); e.setHours(0,0,0,0);
+      if (isNaN(s.getTime()) || isNaN(e.getTime())) return;
+      if (e < mStart || s > mEnd) return;
+      const overlapStart = s > mStart ? s : mStart;
+      const overlapEnd = e < mEnd ? e : mEnd;
+      const overlapDays = Math.round((overlapEnd.getTime() - overlapStart.getTime()) / DAY) + 1;
+      if (overlapDays <= 0) return;
+      const ratio = overlapDays / daysInMonth;
+      const mh = (Number(d.monthlyHours) || 0) * ratio;
+      const oh = (Number(d.outsourceHours) || 0) * ratio;
+      const bucket = d.status === '実績' ? 'jisseki' : 'mikomi';
+      result[bucket].h += mh;
+      result[bucket].out += oh;
+    });
+    return result;
+  }
+
+  const tm = calcMonthHours(thisMonth);
+  const nm = calcMonthHours(nextMonth);
+  const fmtH = v => v > 0 ? v.toFixed(1) + 'h' : '—';
+  const tmLabel = (thisMonth.getMonth()+1) + '月';
+  const nmLabel = (nextMonth.getMonth()+1) + '月';
+  const tmTotalH = tm.jisseki.h + tm.mikomi.h;
+  const tmTotalOut = tm.jisseki.out + tm.mikomi.out;
+  const nmTotalH = nm.jisseki.h + nm.mikomi.h;
+  const nmTotalOut = nm.jisseki.out + nm.mikomi.out;
+
+  card.innerHTML = `
+    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+      <thead>
+        <tr style="background:#f8fafc; border-bottom:2px solid var(--border);">
+          <th style="padding:8px 12px; text-align:left;"></th>
+          <th style="padding:8px 8px; text-align:right;">稼働時間</th>
+          <th style="padding:8px 8px; text-align:right;">外注</th>
+          <th style="padding:8px 8px; text-align:right; font-weight:700;">実稼働</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:6px 12px; font-weight:600;">${tmLabel} 実績</td>
+          <td style="padding:6px 8px; text-align:right;">${fmtH(tm.jisseki.h)}</td>
+          <td style="padding:6px 8px; text-align:right; color:var(--text-sub);">${fmtH(tm.jisseki.out)}</td>
+          <td style="padding:6px 8px; text-align:right; font-weight:600;">${fmtH(tm.jisseki.h - tm.jisseki.out)}</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:6px 12px; font-weight:600;">${tmLabel} 合計（実績+見込み）</td>
+          <td style="padding:6px 8px; text-align:right;">${fmtH(tmTotalH)}</td>
+          <td style="padding:6px 8px; text-align:right; color:var(--text-sub);">${fmtH(tmTotalOut)}</td>
+          <td style="padding:6px 8px; text-align:right; font-weight:700; color:var(--primary);">${fmtH(tmTotalH - tmTotalOut)}</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:6px 12px; font-weight:600;">${nmLabel} 実績</td>
+          <td style="padding:6px 8px; text-align:right;">${fmtH(nm.jisseki.h)}</td>
+          <td style="padding:6px 8px; text-align:right; color:var(--text-sub);">${fmtH(nm.jisseki.out)}</td>
+          <td style="padding:6px 8px; text-align:right; font-weight:600;">${fmtH(nm.jisseki.h - nm.jisseki.out)}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 12px; font-weight:600;">${nmLabel} 合計（実績+見込み）</td>
+          <td style="padding:6px 8px; text-align:right;">${fmtH(nm.jisseki.h + nm.mikomi.h)}</td>
+          <td style="padding:6px 8px; text-align:right; color:var(--text-sub);">${fmtH(nm.jisseki.out + nm.mikomi.out)}</td>
+          <td style="padding:6px 8px; text-align:right; font-weight:700; color:var(--primary);">${fmtH(nmTotalH - nmTotalOut)}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
 }
 
 function escapeHtml(s) {
@@ -3852,6 +4042,7 @@ function saveDeal() {
     end: end,
     amount: amount,
     monthlyHours: Number(document.getElementById('f_monthlyHours').value) || 0,
+    outsourceHours: Number((document.getElementById('f_outsourceHours') || {}).value) || 0,
     // preserve legacy fields if they were set
     invoiceDate:   existing ? (existing.invoiceDate   || '') : '',
     paymentDate:   existing ? (existing.paymentDate   || '') : '',
@@ -3892,6 +4083,8 @@ function editDeal(id) {
   if (mEl) mEl.value = monthlyVal;
   const mhEl = document.getElementById('f_monthlyHours');
   if (mhEl) mhEl.value = d.monthlyHours || '';
+  const ohEl = document.getElementById('f_outsourceHours');
+  if (ohEl) ohEl.value = d.outsourceHours || '';
   document.getElementById('f_note').value = d.note || '';
   document.getElementById('saveBtn').textContent = '更新する';
   window.scrollTo({ top: document.querySelector('.form-grid').offsetTop - 80, behavior: 'smooth' });
@@ -3939,6 +4132,8 @@ function resetForm() {
   if (mEl) mEl.value = '';
   const mhEl = document.getElementById('f_monthlyHours');
   if (mhEl) mhEl.value = '';
+  const ohEl = document.getElementById('f_outsourceHours');
+  if (ohEl) ohEl.value = '';
   document.getElementById('f_note').value = '';
   document.getElementById('saveBtn').textContent = '案件を追加';
 }
