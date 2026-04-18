@@ -1563,6 +1563,14 @@
   <!-- Sales Tab -->
   <div id="sales-tab" class="tab-content active">
 
+  <!-- Category Filter for KPI -->
+  <div style="margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+    <label style="font-size:13px; font-weight:600; color:var(--text-sub);">カテゴリ絞込:</label>
+    <select id="kpiCategoryFilter" onchange="onKpiCategoryFilterChange()" style="padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-family:inherit; font-size:13px;">
+      <option value="">全カテゴリ</option>
+    </select>
+  </div>
+
   <!-- KPI Cards -->
   <div class="kpi-grid">
     <div class="kpi-card target">
@@ -1690,6 +1698,10 @@
           </select>
         </div>
         <div class="form-field">
+          <label>カテゴリ</label>
+          <select id="f_category"><option value="">（なし）</option></select>
+        </div>
+        <div class="form-field">
           <label>クライアント名</label>
           <input type="text" id="f_client" placeholder="株式会社〇〇" />
         </div>
@@ -1798,6 +1810,7 @@
             <tr>
               <th style="width:32px;"><input type="checkbox" id="selectAllDeals" onchange="toggleSelectAllDeals(this.checked)" title="すべて選択/解除" /></th>
               <th>ステータス</th>
+              <th>カテゴリ</th>
               <th>クライアント</th>
               <th>案件名</th>
               <th>開始</th>
@@ -2342,13 +2355,16 @@ function ensureFY(fy) {
   if (!Array.isArray(store.data[fy].monthlyTargets) || store.data[fy].monthlyTargets.length !== 12) {
     store.data[fy].monthlyTargets = new Array(12).fill(0);
   }
-  // Normalize deals: ensure newer fields exist (invoice fields kept for
-  // backward-compat with older data; not shown in UI anymore).
+  if (!store.data[fy].monthlyTargetsByCategory || typeof store.data[fy].monthlyTargetsByCategory !== 'object') {
+    store.data[fy].monthlyTargetsByCategory = {};
+  }
+  // Normalize deals: ensure newer fields exist
   store.data[fy].deals.forEach(d => {
     if (typeof d.invoiceDate === 'undefined')   d.invoiceDate = '';
     if (typeof d.paymentDate === 'undefined')   d.paymentDate = '';
     if (typeof d.invoiceStatus === 'undefined') d.invoiceStatus = '未請求';
     if (typeof d.monthlyHours === 'undefined')  d.monthlyHours = 0;
+    if (typeof d.category === 'undefined')      d.category = '';
   });
   if (!store.fiscalYears.includes(fy)) {
     store.fiscalYears.push(fy);
@@ -2590,6 +2606,61 @@ Object.defineProperty(window, 'monthlyTargets', {
   get() { return currentData().monthlyTargets; },
   set(v) { currentData().monthlyTargets = v; }
 });
+
+// KPI category filter
+let kpiCategoryFilter = '';
+
+function getFilteredDeals() {
+  if (!kpiCategoryFilter) return deals;
+  return deals.filter(d => (d.category || '') === kpiCategoryFilter);
+}
+
+function onKpiCategoryFilterChange() {
+  kpiCategoryFilter = (document.getElementById('kpiCategoryFilter') || {}).value || '';
+  render();
+}
+
+function populateKpiCategoryFilter() {
+  const sel = document.getElementById('kpiCategoryFilter');
+  if (!sel) return;
+  const current = sel.value;
+  const cats = getTaskCategories();
+  const usedCats = new Set(deals.map(d => d.category).filter(Boolean));
+  sel.innerHTML = '<option value="">全カテゴリ</option>';
+  cats.forEach(c => {
+    if (usedCats.has(c.name) || c.name === current) {
+      const opt = document.createElement('option');
+      opt.value = c.name;
+      opt.textContent = c.name;
+      if (c.name === current) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  });
+  usedCats.forEach(name => {
+    if (!cats.some(c => c.name === name)) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      if (name === current) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  });
+}
+
+function populateDealCategorySelect() {
+  const sel = document.getElementById('f_category');
+  if (!sel) return;
+  const current = sel.value;
+  const cats = getTaskCategories();
+  sel.innerHTML = '<option value="">（なし）</option>';
+  cats.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.name;
+    opt.textContent = c.name;
+    if (c.name === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
 
 // ========== Storage ==========
 let _lastSavedJSON = '';
@@ -2879,6 +2950,11 @@ function manualDeduplicate() {
 }
 
 function annualTarget() {
+  if (kpiCategoryFilter) {
+    const byCat = currentData().monthlyTargetsByCategory || {};
+    const catTargets = byCat[kpiCategoryFilter] || new Array(12).fill(0);
+    return catTargets.reduce((a, b) => a + (Number(b) || 0), 0);
+  }
   return currentData().monthlyTargets.reduce((a, b) => a + (Number(b) || 0), 0);
 }
 
@@ -2944,25 +3020,23 @@ function dealMonthlyForMonths(deal, months) {
   const amount = Number(deal.amount) || 0;
   const startM = start.getFullYear() * 12 + start.getMonth();
   const endM   = end.getFullYear()   * 12 + end.getMonth();
-  const totalMonths = endM - startM + 1;
-  if (totalMonths <= 0) return months.map(() => 0);
-  const perMonth = amount / totalMonths;  // 月額相当 (nominal monthly)
 
   const DAY = 24 * 60 * 60 * 1000;
+  const totalDays = Math.round((end.getTime() - start.getTime()) / DAY) + 1;
+  if (totalDays <= 0) return months.map(() => 0);
+
   return months.map(m => {
     const mKey = m.getFullYear() * 12 + m.getMonth();
     if (mKey < startM || mKey > endM) return 0;
     const monthStart = new Date(m.getFullYear(), m.getMonth(), 1);
-    const monthEnd   = new Date(m.getFullYear(), m.getMonth() + 1, 0); // last day
+    const monthEnd   = new Date(m.getFullYear(), m.getMonth() + 1, 0);
     monthStart.setHours(0, 0, 0, 0);
     monthEnd.setHours(0, 0, 0, 0);
-    const daysInMonth = monthEnd.getDate();
     const overlapStart = start > monthStart ? start : monthStart;
     const overlapEnd   = end   < monthEnd   ? end   : monthEnd;
     const overlapDays = Math.round((overlapEnd.getTime() - overlapStart.getTime()) / DAY) + 1;
     if (overlapDays <= 0) return 0;
-    // Pro-rate: 完全にカバーしている月は 1.0、部分月は日割り
-    return perMonth * (overlapDays / daysInMonth);
+    return amount * (overlapDays / totalDays);
   });
 }
 
@@ -3015,9 +3089,8 @@ function dealFYTotal(deal) {
 function monthlyTotalsByStatus() {
   const result = {};
   STATUSES.forEach(s => result[s] = MONTHS.map(() => 0));
-  deals.forEach(d => {
+  getFilteredDeals().forEach(d => {
     if (!result[d.status]) {
-      // Unknown status - skip silently for chart purposes
       if (typeof console !== 'undefined') console.warn('[monthlyTotalsByStatus] Unknown deal status, skipped:', d.status, d);
       return;
     }
@@ -3030,10 +3103,9 @@ function monthlyTotalsByStatus() {
 function statusSummary() {
   const result = {};
   STATUSES.forEach(s => result[s] = { amount: 0, count: 0 });
-  deals.forEach(d => {
+  getFilteredDeals().forEach(d => {
     const st = d.status;
     if (!result[st]) {
-      // Unknown status - coerce to 見込み中 so nothing crashes downstream
       if (typeof console !== 'undefined') console.warn('[statusSummary] Unknown deal status, ignored from charts:', st, d);
       return;
     }
@@ -3045,7 +3117,7 @@ function statusSummary() {
 
 function clientRanking() {
   const map = {};
-  deals.forEach(d => {
+  getFilteredDeals().forEach(d => {
     map[d.client] = (map[d.client] || 0) + dealFYTotal(d);
   });
   return Object.entries(map)
@@ -3076,6 +3148,8 @@ function render() {
     }
   };
   safeCall('renderFYSelector',     renderFYSelector);
+  safeCall('populateKpiCategoryFilter', populateKpiCategoryFilter);
+  safeCall('populateDealCategorySelect', populateDealCategorySelect);
   safeCall('renderKPIs',           renderKPIs);
   safeCall('renderTargetsEditor',  renderTargetsEditor);
   safeCall('renderMonthlyChart',   renderMonthlyChart);
@@ -3087,7 +3161,8 @@ function render() {
 
 function renderKPIs() {
   const summary = statusSummary();
-  const total = deals.reduce((sum, d) => sum + dealFYTotal(d), 0);
+  const filtered = getFilteredDeals();
+  const total = filtered.reduce((sum, d) => sum + dealFYTotal(d), 0);
   // Defensive lookups — older builds had a "確定" status. Now we only use 4 statuses.
   const sAmt = (st) => (summary[st] && summary[st].amount) || 0;
   const weighted =
@@ -3394,28 +3469,98 @@ function renderYoYChart() {
   });
 }
 
+let targetEditorCategory = '';
+
 function renderTargetsEditor() {
   const editor = document.getElementById('monthlyTargetsEditor');
   if (!editor) return;
   editor.innerHTML = '';
   try {
     ensureFY(currentFY);
-    const targets = (currentData() && currentData().monthlyTargets) || new Array(12).fill(0);
+    const data = currentData();
+    const cats = getTaskCategories();
+    const byCat = data.monthlyTargetsByCategory || {};
+
+    const tabBar = document.createElement('div');
+    tabBar.style.cssText = 'display:flex; gap:4px; flex-wrap:wrap; margin-bottom:10px;';
+    const allBtn = document.createElement('button');
+    allBtn.className = 'btn-secondary';
+    allBtn.textContent = '合計';
+    allBtn.style.cssText = targetEditorCategory === '' ? 'background:var(--primary); color:white;' : '';
+    allBtn.onclick = () => { targetEditorCategory = ''; renderTargetsEditor(); };
+    tabBar.appendChild(allBtn);
+    cats.forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'btn-secondary';
+      btn.textContent = c.name;
+      btn.style.cssText = targetEditorCategory === c.name ? 'background:' + c.color + '; color:' + textColorForBg(c.color) + ';' : '';
+      btn.onclick = () => { targetEditorCategory = c.name; renderTargetsEditor(); };
+      tabBar.appendChild(btn);
+    });
+    editor.appendChild(tabBar);
+
+    const isTotal = targetEditorCategory === '';
+    const targets = isTotal ? (data.monthlyTargets || new Array(12).fill(0)) : (byCat[targetEditorCategory] || new Array(12).fill(0));
+    const grid = document.createElement('div');
+    grid.className = 'monthly-targets-editor';
+    grid.style.marginTop = '0';
     MONTHS.forEach((m, i) => {
       const div = document.createElement('div');
       div.className = 'month-target';
       const val = targets[i] || '';
-      div.innerHTML = `
-        <label>${m.getFullYear()}/${m.getMonth()+1}</label>
-        <input type="number" value="${val}" placeholder="0"
-               oninput="updateMonthTarget(${i}, this.value)" />
-      `;
-      editor.appendChild(div);
+      if (isTotal) {
+        div.innerHTML = `
+          <label>${m.getFullYear()}/${m.getMonth()+1}</label>
+          <input type="number" value="${val}" placeholder="0"
+                 oninput="updateMonthTarget(${i}, this.value)" />
+        `;
+      } else {
+        div.innerHTML = `
+          <label>${m.getFullYear()}/${m.getMonth()+1}</label>
+          <input type="number" value="${val}" placeholder="0"
+                 oninput="updateCategoryMonthTarget('${escapeAttr(targetEditorCategory)}', ${i}, this.value)" />
+        `;
+      }
+      grid.appendChild(div);
     });
+    editor.appendChild(grid);
+
+    if (!isTotal) {
+      const catTotal = targets.reduce((a, b) => a + (Number(b) || 0), 0);
+      const note = document.createElement('div');
+      note.style.cssText = 'font-size:11px; color:var(--text-sub); margin-top:4px;';
+      note.textContent = `${targetEditorCategory} の年間合計: ${fmtYen(catTotal)}`;
+      editor.appendChild(note);
+    }
   } catch (e) {
     console.error('renderTargetsEditor failed:', e);
     editor.innerHTML = '<div style="color:var(--danger); padding:10px; font-size:12px;">月別目標の表示に失敗しました: ' + (e && e.message) + '</div>';
   }
+}
+
+function recalcTotalTargets() {
+  const data = currentData();
+  const byCat = data.monthlyTargetsByCategory || {};
+  const catNames = Object.keys(byCat);
+  if (catNames.length === 0) return;
+  const totals = new Array(12).fill(0);
+  catNames.forEach(name => {
+    (byCat[name] || []).forEach((v, i) => { totals[i] += (Number(v) || 0); });
+  });
+  data.monthlyTargets = totals;
+}
+
+function updateCategoryMonthTarget(catName, i, val) {
+  const data = currentData();
+  if (!data.monthlyTargetsByCategory) data.monthlyTargetsByCategory = {};
+  if (!Array.isArray(data.monthlyTargetsByCategory[catName])) {
+    data.monthlyTargetsByCategory[catName] = new Array(12).fill(0);
+  }
+  data.monthlyTargetsByCategory[catName][i] = Number(val) || 0;
+  recalcTotalTargets();
+  save();
+  renderKPIs();
+  renderMonthlyChart();
 }
 
 function updateMonthTarget(i, val) {
@@ -3430,7 +3575,14 @@ function splitAnnualTarget() {
   const val = Number(input.value) || 0;
   if (val <= 0) { alert('年間目標額を入力してください'); return; }
   const perMonth = Math.round(val / 12);
-  monthlyTargets = new Array(12).fill(perMonth);
+  if (targetEditorCategory) {
+    const data = currentData();
+    if (!data.monthlyTargetsByCategory) data.monthlyTargetsByCategory = {};
+    data.monthlyTargetsByCategory[targetEditorCategory] = new Array(12).fill(perMonth);
+    recalcTotalTargets();
+  } else {
+    monthlyTargets = new Array(12).fill(perMonth);
+  }
   save();
   renderTargetsEditor();
   renderKPIs();
@@ -3439,7 +3591,17 @@ function splitAnnualTarget() {
 
 function clearTargets() {
   if (!confirm('月別目標を全てクリアしますか？')) return;
-  monthlyTargets = new Array(12).fill(0);
+  if (targetEditorCategory) {
+    const data = currentData();
+    if (data.monthlyTargetsByCategory) {
+      data.monthlyTargetsByCategory[targetEditorCategory] = new Array(12).fill(0);
+    }
+    recalcTotalTargets();
+  } else {
+    monthlyTargets = new Array(12).fill(0);
+    const data = currentData();
+    if (data.monthlyTargetsByCategory) data.monthlyTargetsByCategory = {};
+  }
   document.getElementById('annualTargetInput').value = '';
   save();
   renderTargetsEditor();
@@ -3540,6 +3702,10 @@ function buildDealRow(d) {
     `<option value="${escapeAttr(s)}"${s === d.status ? ' selected' : ''}>${escapeHtml(s)}</option>`
   ).join('');
   const statusColor = STATUS_COLORS[d.status] || '#9ca3af';
+  const cats = getTaskCategories();
+  const catOptions = '<option value="">(なし)</option>' + cats.map(c =>
+    `<option value="${escapeAttr(c.name)}"${c.name === (d.category || '') ? ' selected' : ''}>${escapeHtml(c.name)}</option>`
+  ).join('');
 
   const tr = document.createElement('tr');
   tr.setAttribute('data-deal-id', d.id);
@@ -3548,6 +3714,11 @@ function buildDealRow(d) {
     <td>
       <select class="inline-status" style="background:${statusColor};" onchange="updateDealField('${escapeAttr(d.id)}', 'status', this.value)">
         ${statusOptions}
+      </select>
+    </td>
+    <td>
+      <select class="inline-edit" style="font-size:12px;" onchange="updateDealField('${escapeAttr(d.id)}', 'category', this.value)">
+        ${catOptions}
       </select>
     </td>
     <td><input class="inline-edit" type="text" value="${escapeAttr(d.client)}" onchange="updateDealField('${escapeAttr(d.id)}', 'client', this.value)" /></td>
@@ -3674,6 +3845,7 @@ function saveDeal() {
   const deal = {
     id: editingId || String(Date.now()) + Math.random().toString(36).slice(2, 8),
     status: document.getElementById('f_status').value,
+    category: (document.getElementById('f_category') || {}).value || '',
     client: document.getElementById('f_client').value.trim(),
     project: document.getElementById('f_project').value.trim(),
     start: start,
@@ -3706,6 +3878,8 @@ function editDeal(id) {
   if (!d) return;
   editingId = id;
   document.getElementById('f_status').value = d.status;
+  const fCat = document.getElementById('f_category');
+  if (fCat) fCat.value = d.category || '';
   document.getElementById('f_client').value = d.client;
   document.getElementById('f_project').value = d.project || '';
   document.getElementById('f_start').value = d.start;
@@ -5308,6 +5482,11 @@ function renderTaskTable() {
   }
 
   const statuses = getTaskStatuses();
+  const cats = getTaskCategories();
+  const clients = getTaskClients();
+  const stores = getTaskStores();
+  const assignees = getTaskAssignees();
+
   tasks.forEach(t => {
     const tr = document.createElement('tr');
     tr.dataset.taskId = t.id;
@@ -5315,55 +5494,53 @@ function renderTaskTable() {
     if (alerting) tr.classList.add('task-row-alert');
     if (isCompletedStatus(t.status)) tr.classList.add('task-row-done');
     const alertIcon = alerting ? '<span class="task-alert-icon" title="期日超過または当日未完了">!</span>' : '';
-    const urlCell = t.url ? `<a class="task-url-link" href="${escapeAttr(t.url)}" target="_blank" rel="noopener">🔗 リンク</a>` : '';
+    const eid = escapeAttr(t.id);
+
+    const catOptions = '<option value="">—</option>' + cats.map(c =>
+      `<option value="${escapeAttr(c.name)}"${c.name === (t.category || '') ? ' selected' : ''}>${escapeHtml(c.name)}</option>`
+    ).join('');
+    const assigneeOptions = '<option value="">—</option>' + assignees.map(a =>
+      `<option value="${escapeAttr(a.name)}"${a.name === (t.assignee || '') ? ' selected' : ''}>${escapeHtml(a.name)}</option>`
+    ).join('');
+    const clientOptions = '<option value="">—</option>' + clients.map(c =>
+      `<option value="${escapeAttr(c.name)}"${c.name === (t.client || '') ? ' selected' : ''}>${escapeHtml(c.name)}</option>`
+    ).join('');
+    const storeOptions = '<option value="">—</option>' + stores.map(s =>
+      `<option value="${escapeAttr(s.name)}"${s.name === (t.store || '') ? ' selected' : ''}>${escapeHtml(s.name)}</option>`
+    ).join('');
     const statusOptions = statuses.map(s =>
       `<option value="${escapeAttr(s.name)}"${s.name === t.status ? ' selected' : ''}>${escapeHtml(s.name)}</option>`
     ).join('');
-    const catColor      = getCategoryColor(t.category);
-    const clientColor   = t.client   ? getClientColor(t.client)     : '';
-    const storeColor    = t.store    ? getStoreColor(t.store)       : '';
-    const assigneeColor = t.assignee ? getAssigneeColor(t.assignee) : '';
-    const statusColor   = getStatusColor(t.status);
-    const catBadge = t.category
-      ? `<span class="category-badge" style="background:${catColor};color:${textColorForBg(catColor)}">${escapeHtml(t.category)}</span>`
-      : '';
-    const assigneeBadge = t.assignee
-      ? `<span class="category-badge" style="background:${assigneeColor};color:${textColorForBg(assigneeColor)}">${escapeHtml(t.assignee)}</span>`
-      : '<span style="color:var(--text-sub); font-size:11px;">—</span>';
-    const clientBadge = t.client
-      ? `<span class="category-badge" style="background:${clientColor};color:${textColorForBg(clientColor)}">${escapeHtml(t.client)}</span>`
-      : '<span style="color:var(--text-sub); font-size:11px;">—</span>';
-    const storeBadge = t.store
-      ? `<span class="category-badge" style="background:${storeColor};color:${textColorForBg(storeColor)}">${escapeHtml(t.store)}</span>`
-      : '<span style="color:var(--text-sub); font-size:11px;">—</span>';
+    const statusColor = getStatusColor(t.status);
+    const catColor = getCategoryColor(t.category);
+
     const timerRunning = !!t.activeStart;
     const timerIcon = timerRunning ? '⏸' : '▶';
     const timerClass = timerRunning ? 'timer-btn running' : 'timer-btn';
     const timerTitle = timerRunning ? '計測を停止' : '計測を開始';
     tr.innerHTML = `
       <td>${alertIcon}</td>
-      <td>${catBadge}</td>
-      <td>${assigneeBadge}</td>
-      <td>${clientBadge}</td>
-      <td>${storeBadge}</td>
-      <td>${escapeHtml(t.content || '')}</td>
-      <td>${escapeHtml(t.dueDate || '')}</td>
+      <td><select class="inline-edit" style="font-size:11px;${t.category ? ' background:' + catColor + '; color:' + textColorForBg(catColor) + '; border-radius:10px; padding:2px 6px; font-weight:600;' : ''}" onchange="updateTaskField('${eid}','category',this.value)">${catOptions}</select></td>
+      <td><select class="inline-edit" style="font-size:11px;" onchange="updateTaskField('${eid}','assignee',this.value)">${assigneeOptions}</select></td>
+      <td><select class="inline-edit" style="font-size:11px;" onchange="updateTaskField('${eid}','client',this.value)">${clientOptions}</select></td>
+      <td><select class="inline-edit" style="font-size:11px;" onchange="updateTaskField('${eid}','store',this.value)">${storeOptions}</select></td>
+      <td><input class="inline-edit" type="text" value="${escapeAttr(t.content || '')}" onchange="updateTaskField('${eid}','content',this.value)" /></td>
+      <td><input class="inline-edit dt" type="date" value="${escapeAttr(t.dueDate || '')}" onchange="updateTaskField('${eid}','dueDate',this.value)" /></td>
       <td>
-        <select class="status-inline-select" style="border-left:3px solid ${statusColor};" onchange="updateTaskStatus('${escapeAttr(t.id)}', this.value)">
+        <select class="status-inline-select" style="border-left:3px solid ${statusColor};" onchange="updateTaskStatus('${eid}', this.value)">
           ${statusOptions}
         </select>
       </td>
       <td class="time-cell">
         ${buildTimeDisplayHTML(t)}
-        <button type="button" class="${timerClass}" title="${timerTitle}" onclick="toggleTaskTimer('${escapeAttr(t.id)}')">${timerIcon}</button>
+        <button type="button" class="${timerClass}" title="${timerTitle}" onclick="toggleTaskTimer('${eid}')">${timerIcon}</button>
       </td>
       <td style="font-size:11px; color:var(--text-sub); white-space:nowrap;">${escapeHtml(recurringLabel(t.recurring))}</td>
-      <td>${urlCell}</td>
-      <td style="max-width:240px; white-space:normal; font-size:12px;">${escapeHtml(t.comment || '')}</td>
+      <td><input class="inline-edit" type="url" value="${escapeAttr(t.url || '')}" placeholder="URL" style="font-size:11px; min-width:80px;" onchange="updateTaskField('${eid}','url',this.value)" /></td>
+      <td><input class="inline-edit" type="text" value="${escapeAttr(t.comment || '')}" placeholder="" style="font-size:12px; min-width:100px;" onchange="updateTaskField('${eid}','comment',this.value)" /></td>
       <td>
         <div class="row-actions">
-          <button type="button" class="icon-btn" onclick="editTask('${escapeAttr(t.id)}')">編集</button>
-          <button type="button" class="icon-btn delete" onclick="deleteTask('${escapeAttr(t.id)}')">削除</button>
+          <button type="button" class="icon-btn delete" onclick="deleteTask('${eid}')">削除</button>
         </div>
       </td>
     `;
@@ -5806,6 +5983,17 @@ function updateTaskStatus(id, newStatus) {
   }
   save();
   renderTaskView();
+}
+
+function updateTaskField(id, field, value) {
+  ensureTaskStore();
+  const t = (store.tasks || []).find(x => x.id === id);
+  if (!t) return;
+  t[field] = value;
+  save();
+  renderTaskTable();
+  renderTaskKPIs();
+  renderClientSummary();
 }
 
 function resetTaskForm() {
