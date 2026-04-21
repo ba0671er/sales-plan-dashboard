@@ -3451,9 +3451,10 @@ function renderMonthlyChart() {
       group.appendChild(valueLabel);
     }
 
-    // Achievement rate label (above whichever is higher: bar or target)
+    // Achievement rate label (実績のみで計算、見込みは除外)
     if (targets[i] > 0) {
-      const rate = Math.round((monthTotals[i] / targets[i]) * 100);
+      const actual = (data['実績'] && data['実績'][i]) || 0;
+      const rate = Math.round((actual / targets[i]) * 100);
       const rateLabel = document.createElement('div');
       rateLabel.className = 'bar-achievement ' + (rate >= 100 ? 'ok' : 'ng');
       const topPct = Math.max(heightPct, targetPct);
