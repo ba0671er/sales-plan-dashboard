@@ -965,6 +965,22 @@
     outline: none;
     border-color: var(--primary);
   }
+  .date-range-filter {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .date-range-filter span {
+    font-size: 10px;
+    color: var(--text-sub);
+    flex-shrink: 0;
+  }
+  .date-range-filter input {
+    width: 50%;
+    min-width: 0;
+    font-size: 10px;
+    padding: 3px 2px;
+  }
 
   /* Row highlight flash after edit */
   @keyframes row-flash {
@@ -1930,8 +1946,8 @@
               <td><select id="dfCategory" onchange="applyDealFilters()"><option value="">全て</option></select></td>
               <td><input id="dfClient" type="text" placeholder="検索…" oninput="applyDealFilters()" class="deal-filter-input" /></td>
               <td><input id="dfProject" type="text" placeholder="検索…" oninput="applyDealFilters()" class="deal-filter-input" /></td>
-              <td><input id="dfStartFrom" type="date" onchange="applyDealFilters()" class="deal-filter-input" title="開始日以降" /></td>
-              <td><input id="dfEndTo" type="date" onchange="applyDealFilters()" class="deal-filter-input" title="終了日以前" /></td>
+              <td><div class="date-range-filter"><input id="dfStartFrom" type="date" onchange="applyDealFilters()" class="deal-filter-input" title="開始日From" /><span>～</span><input id="dfStartTo" type="date" onchange="applyDealFilters()" class="deal-filter-input" title="開始日To" /></div></td>
+              <td><div class="date-range-filter"><input id="dfEndFrom" type="date" onchange="applyDealFilters()" class="deal-filter-input" title="終了日From" /><span>～</span><input id="dfEndTo" type="date" onchange="applyDealFilters()" class="deal-filter-input" title="終了日To" /></div></td>
               <td colspan="8"></td>
             </tr>
           </thead>
@@ -3943,7 +3959,7 @@ function renderRanking() {
 
 let dealSortField = 'start';
 let dealSortDir = 1;
-let dealFilters = { status: '', category: '', client: '', project: '', startFrom: '', endTo: '' };
+let dealFilters = { status: '', category: '', client: '', project: '', startFrom: '', startTo: '', endFrom: '', endTo: '' };
 
 function sortDealsBy(field) {
   if (dealSortField === field) {
@@ -3961,6 +3977,8 @@ function applyDealFilters() {
   dealFilters.client = (document.getElementById('dfClient') || {}).value.trim().toLowerCase();
   dealFilters.project = (document.getElementById('dfProject') || {}).value.trim().toLowerCase();
   dealFilters.startFrom = (document.getElementById('dfStartFrom') || {}).value || '';
+  dealFilters.startTo = (document.getElementById('dfStartTo') || {}).value || '';
+  dealFilters.endFrom = (document.getElementById('dfEndFrom') || {}).value || '';
   dealFilters.endTo = (document.getElementById('dfEndTo') || {}).value || '';
   renderTable();
 }
@@ -3988,6 +4006,8 @@ function getFilteredDealsList() {
     if (dealFilters.client && !(d.client || '').toLowerCase().includes(dealFilters.client)) return false;
     if (dealFilters.project && !(d.project || '').toLowerCase().includes(dealFilters.project)) return false;
     if (dealFilters.startFrom && (d.start || '') < dealFilters.startFrom) return false;
+    if (dealFilters.startTo && (d.start || '9999') > dealFilters.startTo) return false;
+    if (dealFilters.endFrom && (d.end || '') < dealFilters.endFrom) return false;
     if (dealFilters.endTo && (d.end || '9999') > dealFilters.endTo) return false;
     return true;
   });
