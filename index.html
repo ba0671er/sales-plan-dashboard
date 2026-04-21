@@ -1636,7 +1636,12 @@
     <h2 class="section-title">ダッシュボード</h2>
     <div class="dashboard-grid">
       <div class="card">
-        <h3 class="chart-title">月次売上推移（ステータス別・積み上げ）</h3>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <h3 class="chart-title" style="margin:0;">月次売上推移（ステータス別・積み上げ）</h3>
+          <select id="chartCategoryFilter" onchange="onChartCategoryFilterChange()" style="padding:4px 8px; border:1px solid var(--border); border-radius:4px; font-size:12px;">
+            <option value="">全カテゴリ</option>
+          </select>
+        </div>
         <div class="chart-container">
           <div class="y-axis" id="yAxis"></div>
           <div class="chart-area">
@@ -2659,33 +2664,44 @@ function getFilteredDeals() {
 
 function onKpiCategoryFilterChange() {
   kpiCategoryFilter = (document.getElementById('kpiCategoryFilter') || {}).value || '';
+  const chartSel = document.getElementById('chartCategoryFilter');
+  if (chartSel) chartSel.value = kpiCategoryFilter;
+  render();
+}
+
+function onChartCategoryFilterChange() {
+  kpiCategoryFilter = (document.getElementById('chartCategoryFilter') || {}).value || '';
+  const kpiSel = document.getElementById('kpiCategoryFilter');
+  if (kpiSel) kpiSel.value = kpiCategoryFilter;
   render();
 }
 
 function populateKpiCategoryFilter() {
-  const sel = document.getElementById('kpiCategoryFilter');
-  if (!sel) return;
-  const current = sel.value;
+  const sels = [document.getElementById('kpiCategoryFilter'), document.getElementById('chartCategoryFilter')];
   const cats = getTaskCategories();
   const usedCats = new Set(deals.map(d => d.category).filter(Boolean));
-  sel.innerHTML = '<option value="">全カテゴリ</option>';
-  cats.forEach(c => {
-    if (usedCats.has(c.name) || c.name === current) {
-      const opt = document.createElement('option');
-      opt.value = c.name;
-      opt.textContent = c.name;
-      if (c.name === current) opt.selected = true;
-      sel.appendChild(opt);
-    }
-  });
-  usedCats.forEach(name => {
-    if (!cats.some(c => c.name === name)) {
-      const opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = name;
-      if (name === current) opt.selected = true;
-      sel.appendChild(opt);
-    }
+  sels.forEach(sel => {
+    if (!sel) return;
+    const current = kpiCategoryFilter;
+    sel.innerHTML = '<option value="">全カテゴリ</option>';
+    cats.forEach(c => {
+      if (usedCats.has(c.name) || c.name === current) {
+        const opt = document.createElement('option');
+        opt.value = c.name;
+        opt.textContent = c.name;
+        if (c.name === current) opt.selected = true;
+        sel.appendChild(opt);
+      }
+    });
+    usedCats.forEach(name => {
+      if (!cats.some(c => c.name === name)) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        if (name === current) opt.selected = true;
+        sel.appendChild(opt);
+      }
+    });
   });
 }
 
