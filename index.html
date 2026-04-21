@@ -3176,12 +3176,13 @@ function dealMonthlyForMonths(deal, months) {
   });
 }
 
-function monthlyActualForFY(fy) {
+function monthlyActualForFY(fy, categoryFilter) {
   const data = store.data[fy];
   if (!data) return new Array(12).fill(0);
   const months = buildMonths(fy);
   const result = new Array(12).fill(0);
   data.deals.forEach(d => {
+    if (categoryFilter && (d.category || '') !== categoryFilter) return;
     const contribs = dealMonthlyForMonths(d, months);
     contribs.forEach((v, i) => { result[i] += v; });
   });
@@ -3379,10 +3380,10 @@ function renderMonthlyChart() {
     STATUSES.reduce((s, st) => s + data[st][i], 0)
   );
   const targets = currentMonthlyTargets();
-  const prevActual = monthlyActualForFY(currentFY - 1);
+  const prevActual = monthlyActualForFY(currentFY - 1, kpiCategoryFilter);
   const hasPrev = prevActual.some(v => v > 0);
   const rawMax = Math.max(...monthTotals, ...targets, ...(hasPrev ? prevActual : [0]), 1);
-  const chartMax = niceMax(rawMax + 1000000);
+  const chartMax = rawMax + 1000000;
 
   // Y-axis labels
   const yAxis = document.getElementById('yAxis');
