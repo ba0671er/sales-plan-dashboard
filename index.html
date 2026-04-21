@@ -3382,7 +3382,7 @@ function renderMonthlyChart() {
   const prevActual = monthlyActualForFY(currentFY - 1);
   const hasPrev = prevActual.some(v => v > 0);
   const rawMax = Math.max(...monthTotals, ...targets, ...(hasPrev ? prevActual : [0]), 1);
-  const chartMax = niceMax(rawMax * 1.1);
+  const chartMax = niceMax(rawMax + 1000000);
 
   // Y-axis labels
   const yAxis = document.getElementById('yAxis');
@@ -3441,15 +3441,6 @@ function renderMonthlyChart() {
     group.appendChild(stack);
 
     const targetPct = targets[i] > 0 ? (targets[i] / chartMax) * 100 : 0;
-
-    // Amount label just above the bar top
-    if (monthTotals[i] > 0) {
-      const valueLabel = document.createElement('div');
-      valueLabel.className = 'bar-value';
-      valueLabel.style.bottom = `calc(${heightPct}% + 2px)`;
-      valueLabel.textContent = fmtShort(monthTotals[i]);
-      group.appendChild(valueLabel);
-    }
 
     // Achievement rate label (実績のみで計算、見込みは除外)
     if (targets[i] > 0) {
