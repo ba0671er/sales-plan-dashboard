@@ -1694,17 +1694,12 @@
 
   <!-- Add/Edit Form -->
   <div class="section">
-    <h2 class="section-title">案件の追加・編集</h2>
+    <h2 class="section-title">案件の追加・編集 <button class="btn-secondary" style="font-size:11px; padding:4px 10px; margin-left:8px;" onclick="openDealSettingsModal()">⚙ ステータス・カテゴリ設定</button></h2>
     <div class="card">
       <div class="form-grid">
         <div class="form-field">
           <label>ステータス</label>
-          <select id="f_status">
-            <option value="実績">実績</option>
-            <option value="見込み高">見込み高</option>
-            <option value="見込み中">見込み中</option>
-            <option value="見込み低">見込み低</option>
-          </select>
+          <select id="f_status"></select>
         </div>
         <div class="form-field">
           <label>カテゴリ</label>
@@ -2310,21 +2305,47 @@ function buildMonths(fy) {
 }
 MONTHS = buildMonths(currentFY);
 
-const STATUSES = ['実績', '見込み高', '見込み中', '見込み低'];
-const STATUS_COLORS = {
-  '実績': '#10b981',
-  '確定': '#3b82f6',
-  '見込み高': '#8b5cf6',
-  '見込み中': '#f59e0b',
-  '見込み低': '#94a3b8'
-};
-const WEIGHTS = {
-  '実績': 1.0,
-  '確定': 1.0,
-  '見込み高': 0.8,
-  '見込み中': 0.5,
-  '見込み低': 0.2
-};
+const DEFAULT_DEAL_STATUSES = [
+  { name: '実績',   color: '#10b981', weight: 1.0 },
+  { name: '見込み高', color: '#8b5cf6', weight: 0.8 },
+  { name: '見込み中', color: '#f59e0b', weight: 0.5 },
+  { name: '見込み低', color: '#94a3b8', weight: 0.2 },
+  { name: '失注',   color: '#ef4444', weight: 0 }
+];
+
+function getDealStatuses() {
+  if (store.dealSettings && Array.isArray(store.dealSettings.statuses) && store.dealSettings.statuses.length > 0) {
+    return store.dealSettings.statuses;
+  }
+  return DEFAULT_DEAL_STATUSES;
+}
+
+function ensureDealSettings() {
+  if (!store.dealSettings || typeof store.dealSettings !== 'object') store.dealSettings = {};
+  if (!Array.isArray(store.dealSettings.statuses) || store.dealSettings.statuses.length === 0) {
+    store.dealSettings.statuses = DEFAULT_DEAL_STATUSES.map(s => ({ ...s }));
+  }
+}
+
+Object.defineProperty(window, 'STATUSES', {
+  get() { return getDealStatuses().map(s => s.name); }
+});
+Object.defineProperty(window, 'STATUS_COLORS', {
+  get() {
+    const m = {};
+    getDealStatuses().forEach(s => { m[s.name] = s.color; });
+    m['確定'] = '#3b82f6';
+    return m;
+  }
+});
+Object.defineProperty(window, 'WEIGHTS', {
+  get() {
+    const m = {};
+    getDealStatuses().forEach(s => { m[s.name] = s.weight; });
+    m['確定'] = 1.0;
+    return m;
+  }
+});
 
 // ========== State ==========
 // store = { fiscalYears: [2025, 2026, ...], currentFY: 2026, data: { 2026: { deals: [], monthlyTargets: [] }, ... }, tasks: [], archivedTasks: [] }
@@ -2668,6 +2689,20 @@ function populateKpiCategoryFilter() {
   });
 }
 
+function populateDealStatusSelect() {
+  const sel = document.getElementById('f_status');
+  if (!sel) return;
+  const current = sel.value || '実績';
+  sel.innerHTML = '';
+  getDealStatuses().forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.name;
+    opt.textContent = s.name;
+    if (s.name === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
 function populateDealCategorySelect() {
   const sel = document.getElementById('f_category');
   if (!sel) return;
@@ -2783,6 +2818,7 @@ function load() {
   // Normalize all FYs
   store.fiscalYears.forEach(fy => ensureFY(fy));
   ensureTaskStore();
+  ensureDealSettings();
   migratePaletteToPastels();
   // One-shot cleanup: fix any deals whose status has BOM/invisible chars or
   // is otherwise not one of STATUSES (caused charts to crash in older builds)
@@ -2810,8 +2846,11 @@ function repairDealStatuses() {
       // Legacy: "確定" has been removed from the app. Migrate to 実績 (same weight).
       if (d.status === '確定') { d.status = '実績'; repaired++; }
       if (!STATUSES.includes(d.status)) {
-        d.status = '見込み中';
-        repaired++;
+        const ds = getDealStatuses();
+        if (!ds.some(s => s.name === d.status)) {
+          ds.push({ name: d.status, color: '#9ca3af', weight: 0 });
+          store.dealSettings.statuses = ds;
+        }
       }
     });
   });
@@ -3169,6 +3208,7 @@ function render() {
   };
   safeCall('renderFYSelector',     renderFYSelector);
   safeCall('populateKpiCategoryFilter', populateKpiCategoryFilter);
+  safeCall('populateDealStatusSelect', populateDealStatusSelect);
   safeCall('populateDealCategorySelect', populateDealCategorySelect);
   safeCall('renderKPIs',           renderKPIs);
   safeCall('renderTargetsEditor',  renderTargetsEditor);
@@ -4186,6 +4226,106 @@ function resetForm() {
   document.getElementById('saveBtn').textContent = '案件を追加';
 }
 
+// ========== Deal Settings Modal ==========
+function openDealSettingsModal() {
+  ensureDealSettings();
+  const statuses = store.dealSettings.statuses;
+  const cats = getTaskCategories();
+  let html = '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)this.remove()" id="dealSettingsOverlay">';
+  html += '<div style="background:white;border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;" onclick="event.stopPropagation()">';
+  html += '<h3 style="margin:0 0 16px;">案件ステータス・カテゴリ設定</h3>';
+
+  html += '<h4 style="margin:0 0 8px; font-size:14px;">ステータス</h4>';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px;">';
+  html += '<tr style="border-bottom:1px solid var(--border);"><th style="text-align:left;padding:4px;">名前</th><th style="padding:4px;width:50px;">色</th><th style="padding:4px;width:60px;">重み</th><th style="width:40px;"></th></tr>';
+  statuses.forEach((s, i) => {
+    html += `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:4px;"><input type="text" value="${escapeAttr(s.name)}" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:3px;font-size:13px;" onchange="updateDealStatus(${i},'name',this.value)" /></td>
+      <td style="padding:4px;"><input type="color" value="${s.color}" style="width:32px;height:28px;border:none;cursor:pointer;" onchange="updateDealStatus(${i},'color',this.value)" /></td>
+      <td style="padding:4px;"><input type="number" value="${s.weight}" step="0.1" min="0" max="1" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:3px;font-size:12px;text-align:right;" onchange="updateDealStatus(${i},'weight',Number(this.value))" /></td>
+      <td style="padding:4px;text-align:center;"><button onclick="removeDealStatus(${i})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px;">✕</button></td>
+    </tr>`;
+  });
+  html += '</table>';
+  html += '<button class="btn-secondary" style="font-size:12px;" onclick="addDealStatus()">+ ステータスを追加</button>';
+
+  html += '<h4 style="margin:16px 0 8px; font-size:14px;">カテゴリ</h4>';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px;">';
+  html += '<tr style="border-bottom:1px solid var(--border);"><th style="text-align:left;padding:4px;">名前</th><th style="padding:4px;width:50px;">色</th><th style="width:40px;"></th></tr>';
+  cats.forEach((c, i) => {
+    html += `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:4px;"><input type="text" value="${escapeAttr(c.name)}" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:3px;font-size:13px;" onchange="updateDealCategory(${i},'name',this.value)" /></td>
+      <td style="padding:4px;"><input type="color" value="${c.color}" style="width:32px;height:28px;border:none;cursor:pointer;" onchange="updateDealCategory(${i},'color',this.value)" /></td>
+      <td style="padding:4px;text-align:center;"><button onclick="removeDealCategory(${i})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px;">✕</button></td>
+    </tr>`;
+  });
+  html += '</table>';
+  html += '<button class="btn-secondary" style="font-size:12px;" onclick="addDealCategory()">+ カテゴリを追加</button>';
+
+  html += '<div style="margin-top:20px;text-align:right;"><button class="btn-primary" onclick="document.getElementById(\'dealSettingsOverlay\').remove()">閉じる</button></div>';
+  html += '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function updateDealStatus(i, field, val) {
+  ensureDealSettings();
+  store.dealSettings.statuses[i][field] = val;
+  save();
+  openDealSettingsModal();
+  render();
+}
+
+function addDealStatus() {
+  ensureDealSettings();
+  store.dealSettings.statuses.push({ name: '新規ステータス', color: '#9ca3af', weight: 0 });
+  save();
+  openDealSettingsModal();
+  render();
+}
+
+function removeDealStatus(i) {
+  ensureDealSettings();
+  const name = store.dealSettings.statuses[i].name;
+  if (!confirm(`「${name}」を削除しますか？`)) return;
+  store.dealSettings.statuses.splice(i, 1);
+  save();
+  openDealSettingsModal();
+  render();
+}
+
+function updateDealCategory(i, field, val) {
+  ensureTaskStore();
+  const old = store.taskSettings.categories[i].name;
+  store.taskSettings.categories[i][field] = val;
+  if (field === 'name' && old !== val) {
+    (deals || []).forEach(d => { if (d.category === old) d.category = val; });
+    (store.tasks || []).forEach(t => { if (t.category === old) t.category = val; });
+  }
+  save();
+  openDealSettingsModal();
+  render();
+}
+
+function addDealCategory() {
+  ensureTaskStore();
+  const palette = ['#bae6fd','#ddd6fe','#fbcfe8','#fde68a','#bbf7d0','#fecaca','#a5f3fc','#fed7aa','#c7d2fe'];
+  const idx = store.taskSettings.categories.length % palette.length;
+  store.taskSettings.categories.push({ name: '新規カテゴリ', color: palette[idx] });
+  save();
+  openDealSettingsModal();
+  render();
+}
+
+function removeDealCategory(i) {
+  ensureTaskStore();
+  const name = store.taskSettings.categories[i].name;
+  if (!confirm(`「${name}」を削除しますか？`)) return;
+  store.taskSettings.categories.splice(i, 1);
+  save();
+  openDealSettingsModal();
+  render();
+}
+
 // ========== Invoice / Payment Calendar (C2) ==========
 function renderInvoiceCalendar() {
   const el = document.getElementById('invoiceCalendarList');
@@ -4357,32 +4497,19 @@ function exportBackupJSON() {
 }
 
 function buildMonthlyPlanCSV() {
-  const headers = ['年月','目標','実績','達成率','前年実績','前年比'];
-  const actual = MONTHS.map((_, i) => {
-    const data = monthlyTotalsByStatus();
-    return STATUSES.reduce((s, st) => s + data[st][i], 0);
+  const cats = getTaskCategories();
+  const byCat = currentData().monthlyTargetsByCategory || {};
+  const monthCols = MONTHS.map(m => `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`);
+  const headers = ['カテゴリ', ...monthCols, '年間計'];
+  const rows = [];
+  cats.forEach(c => {
+    const catTargets = byCat[c.name] || new Array(12).fill(0);
+    const sum = catTargets.reduce((a, b) => a + (Number(b) || 0), 0);
+    rows.push([c.name, ...catTargets.map(v => Math.round(v || 0)), Math.round(sum)]);
   });
-  const prev = monthlyActualForFY(currentFY - 1);
-  const rows = MONTHS.map((m, i) => {
-    const t = monthlyTargets[i] || 0;
-    const a = Math.round(actual[i]);
-    const p = Math.round(prev[i]);
-    const rate = t > 0 ? ((a / t) * 100).toFixed(1) + '%' : '';
-    const yoy = p > 0 ? ((a / p) * 100).toFixed(1) + '%' : '';
-    return [
-      `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`,
-      t, a, rate, p, yoy
-    ];
-  });
-  const totalT = annualTarget();
-  const totalA = actual.reduce((s, v) => s + v, 0);
-  const totalP = prev.reduce((s, v) => s + v, 0);
-  rows.push([
-    '合計', totalT, Math.round(totalA),
-    totalT > 0 ? (totalA / totalT * 100).toFixed(1) + '%' : '',
-    Math.round(totalP),
-    totalP > 0 ? (totalA / totalP * 100).toFixed(1) + '%' : ''
-  ]);
+  const totals = monthlyTargets;
+  const totalSum = totals.reduce((a, b) => a + (Number(b) || 0), 0);
+  rows.push(['合計', ...totals.map(v => Math.round(v || 0)), Math.round(totalSum)]);
   return toCSV([headers, ...rows]);
 }
 
@@ -4391,12 +4518,12 @@ function exportMonthlyPlanCSV() {
 }
 
 function downloadMonthlyPlanTemplate() {
-  const headers = ['年月','目標','実績','達成率','前年実績','前年比'];
-  const rows = MONTHS.map(m => [
-    `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`,
-    '', '', '', '', ''
-  ]);
-  downloadFile(toCSV([headers, ...rows]), `月別目標実績テンプレート_FY${currentFY}.csv`);
+  const cats = getTaskCategories();
+  const monthCols = MONTHS.map(m => `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`);
+  const headers = ['カテゴリ', ...monthCols, '年間計'];
+  const rows = cats.map(c => [c.name, ...new Array(12).fill(''), '']);
+  rows.push(['合計', ...new Array(12).fill(''), '']);
+  downloadFile(toCSV([headers, ...rows]), `月別目標テンプレート_FY${currentFY}.csv`);
 }
 
 function triggerMonthlyPlanUpload() {
@@ -4412,19 +4539,37 @@ function handleMonthlyPlanUpload(e) {
     try {
       const rows = parseCSV(text);
       if (rows.length < 2) { alert('データ行がありません'); return; }
-      const map = {};
-      for (let i = 1; i < rows.length; i++) {
-        const [ym, target] = rows[i];
-        if (!ym || ym === '合計') continue;
-        const n = Number(String(target || '').replace(/[^\d.-]/g, '')) || 0;
-        map[ym.trim()] = n;
+      const header = rows[0].map(c => (c || '').trim());
+      const isCategoryFormat = header[0] === 'カテゴリ';
+      if (isCategoryFormat) {
+        const data = currentData();
+        if (!data.monthlyTargetsByCategory) data.monthlyTargetsByCategory = {};
+        let catCount = 0;
+        for (let i = 1; i < rows.length; i++) {
+          const catName = (rows[i][0] || '').trim();
+          if (!catName || catName === '合計') continue;
+          const vals = new Array(12).fill(0);
+          for (let j = 1; j <= 12 && j < rows[i].length; j++) {
+            vals[j - 1] = Number(String(rows[i][j] || '').replace(/[^\d.-]/g, '')) || 0;
+          }
+          data.monthlyTargetsByCategory[catName] = vals;
+          catCount++;
+        }
+        if (!confirm(`${catCount}カテゴリの月別目標を読み込みます。よろしいですか？`)) return;
+        recalcTotalTargets();
+      } else {
+        const map = {};
+        for (let i = 1; i < rows.length; i++) {
+          const [ym, target] = rows[i];
+          if (!ym || ym === '合計') continue;
+          map[ym.trim()] = Number(String(target || '').replace(/[^\d.-]/g, '')) || 0;
+        }
+        if (!confirm(`FY${currentFY} の月別目標を読み込みます。よろしいですか？`)) return;
+        currentData().monthlyTargets = MONTHS.map(m => {
+          const key = `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`;
+          return map[key] || 0;
+        });
       }
-      if (!confirm(`FY${currentFY} の月別目標を読み込んだ値で上書きします。よろしいですか？\n（実績列は案件から自動計算されるため読み込みません）`)) return;
-      const newTargets = MONTHS.map(m => {
-        const key = `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}`;
-        return map[key] || 0;
-      });
-      currentData().monthlyTargets = newTargets;
       save();
       render();
       alert('月別目標を読み込みました');
