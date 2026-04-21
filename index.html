@@ -1507,6 +1507,50 @@
   .inline-edit.man { width: 60px; font-size: 12px; text-align: right; }
   .inline-edit.hr  { min-width: 60px; }
 
+  /* Note cell tooltip (hover to see full text) */
+  .note-wrap {
+    position: relative;
+    display: block;
+  }
+  .note-input {
+    width: 100%;
+    min-width: 120px;
+  }
+  .note-wrap:hover::after {
+    content: attr(data-note);
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 6px);
+    background: #1f2937;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-width: 360px;
+    min-width: 120px;
+    width: max-content;
+    z-index: 1000;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+    pointer-events: none;
+  }
+  .note-wrap:hover::before {
+    content: "";
+    position: absolute;
+    left: 16px;
+    bottom: calc(100% - 1px);
+    border: 6px solid transparent;
+    border-top-color: #1f2937;
+    z-index: 1000;
+    pointer-events: none;
+  }
+  .note-wrap[data-note=""]:hover::after,
+  .note-wrap[data-note=""]:hover::before {
+    display: none;
+  }
+
   /* Inline status select in deals table */
   .inline-status {
     padding: 4px 8px;
@@ -3959,7 +4003,7 @@ function buildDealRow(d) {
     <td class="num"><input class="inline-edit num hr" type="number" step="0.5" value="${monthlyHours || ''}" placeholder="0" onchange="updateDealField('${eid}', 'monthlyHours', this.value)" /></td>
     <td class="num"><input class="inline-edit num hr" type="number" step="0.5" value="${Number(d.outsourceHours) || ''}" placeholder="0" onchange="updateDealField('${eid}', 'outsourceHours', this.value)" /></td>
     <td class="num cell-hourly ${hourlyClass}">${hourlyStr}</td>
-    <td><input class="inline-edit" type="text" value="${escapeAttr(d.note || '')}" onchange="updateDealField('${eid}', 'note', this.value)" /></td>
+    <td class="note-cell"><div class="note-wrap" data-note="${escapeAttr(d.note || '')}"><input class="inline-edit note-input" type="text" value="${escapeAttr(d.note || '')}" title="${escapeAttr(d.note || '')}" onchange="updateDealField('${eid}', 'note', this.value); this.parentElement.setAttribute('data-note', this.value); this.title = this.value;" /></div></td>
     <td>
       <div class="row-actions">
         <button class="icon-btn delete" onclick="deleteDeal('${eid}')" title="削除">✕</button>
