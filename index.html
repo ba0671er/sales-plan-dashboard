@@ -405,6 +405,16 @@
     white-space: nowrap;
   }
 
+  .bar-achievement {
+    position: absolute;
+    top: -36px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .bar-achievement.ok { color: #16a34a; }
+  .bar-achievement.ng { color: #dc2626; }
+
   .bar-label {
     position: absolute;
     bottom: -22px;
@@ -3375,6 +3385,15 @@ function renderMonthlyChart() {
       valueLabel.textContent = fmtShort(monthTotals[i]);
     }
     stack.appendChild(valueLabel);
+
+    // Achievement rate label (above amount label)
+    if (monthlyTargets[i] > 0) {
+      const rate = Math.round((monthTotals[i] / monthlyTargets[i]) * 100);
+      const rateLabel = document.createElement('div');
+      rateLabel.className = 'bar-achievement ' + (rate >= 100 ? 'ok' : 'ng');
+      rateLabel.textContent = rate + '%';
+      stack.appendChild(rateLabel);
+    }
 
     group.appendChild(stack);
 
