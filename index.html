@@ -945,6 +945,27 @@
   }
   .sort-indicator.active { color: var(--primary); font-weight: 700; }
 
+  .deal-filter-row td {
+    padding: 4px 6px !important;
+    background: #f8fafc;
+    border-bottom: 2px solid var(--border);
+  }
+  .deal-filter-row select,
+  .deal-filter-input {
+    width: 100%;
+    padding: 4px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: inherit;
+    background: white;
+  }
+  .deal-filter-input:focus,
+  .deal-filter-row select:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
   /* Row highlight flash after edit */
   @keyframes row-flash {
     0%   { background: #fef3c7; }
@@ -1902,6 +1923,14 @@
               <th class="num sortable-deal" onclick="sortDealsBy('hourly')">時給</th>
               <th>備考</th>
               <th></th>
+            </tr>
+            <tr id="dealFilterRow" class="deal-filter-row">
+              <td></td>
+              <td><select id="dfStatus" onchange="applyDealFilters()"><option value="">全て</option></select></td>
+              <td><select id="dfCategory" onchange="applyDealFilters()"><option value="">全て</option></select></td>
+              <td><input id="dfClient" type="text" placeholder="検索…" oninput="applyDealFilters()" class="deal-filter-input" /></td>
+              <td><input id="dfProject" type="text" placeholder="検索…" oninput="applyDealFilters()" class="deal-filter-input" /></td>
+              <td colspan="10"></td>
             </tr>
           </thead>
           <tbody id="dealsBody"></tbody>
@@ -3912,6 +3941,7 @@ function renderRanking() {
 
 let dealSortField = 'start';
 let dealSortDir = 1;
+let dealFilters = { status: '', category: '', client: '', project: '' };
 
 function sortDealsBy(field) {
   if (dealSortField === field) {
@@ -3923,6 +3953,40 @@ function sortDealsBy(field) {
   renderTable();
 }
 
+function applyDealFilters() {
+  dealFilters.status = (document.getElementById('dfStatus') || {}).value || '';
+  dealFilters.category = (document.getElementById('dfCategory') || {}).value || '';
+  dealFilters.client = (document.getElementById('dfClient') || {}).value.trim().toLowerCase();
+  dealFilters.project = (document.getElementById('dfProject') || {}).value.trim().toLowerCase();
+  renderTable();
+}
+
+function populateDealFilterOptions() {
+  const statusSel = document.getElementById('dfStatus');
+  const catSel = document.getElementById('dfCategory');
+  if (!statusSel || !catSel) return;
+
+  const curStatus = dealFilters.status;
+  const curCat = dealFilters.category;
+
+  statusSel.innerHTML = '<option value="">全て</option>' +
+    STATUSES.map(s => `<option value="${escapeAttr(s)}"${s === curStatus ? ' selected' : ''}>${escapeHtml(s)}</option>`).join('');
+
+  const cats = getTaskCategories();
+  catSel.innerHTML = '<option value="">全て</option>' +
+    cats.map(c => `<option value="${escapeAttr(c.name)}"${c.name === curCat ? ' selected' : ''}>${escapeHtml(c.name)}</option>`).join('');
+}
+
+function getFilteredDealsList() {
+  return deals.filter(d => {
+    if (dealFilters.status && (d.status || '') !== dealFilters.status) return false;
+    if (dealFilters.category && (d.category || '') !== dealFilters.category) return false;
+    if (dealFilters.client && !(d.client || '').toLowerCase().includes(dealFilters.client)) return false;
+    if (dealFilters.project && !(d.project || '').toLowerCase().includes(dealFilters.project)) return false;
+    return true;
+  });
+}
+
 function renderTable() {
   const tbody = document.getElementById('dealsBody');
   tbody.innerHTML = '';
@@ -3930,12 +3994,18 @@ function renderTable() {
   const existingIds = new Set((deals || []).map(d => d.id));
   selectedDealIds.forEach(id => { if (!existingIds.has(id)) selectedDealIds.delete(id); });
 
-  if (deals.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="15" class="empty-state">案件がまだありません。上のフォームから追加してください。</td></tr>';
+  populateDealFilterOptions();
+  const filtered = getFilteredDealsList();
+
+  if (filtered.length === 0) {
+    const msg = deals.length === 0
+      ? '案件がまだありません。上のフォームから追加してください。'
+      : '条件に一致する案件がありません。';
+    tbody.innerHTML = `<tr><td colspan="15" class="empty-state">${msg}</td></tr>`;
     updateDealsBulkBar();
     return;
   }
-  const sorted = [...deals].sort((a, b) => {
+  const sorted = [...filtered].sort((a, b) => {
     let av, bv, cmp = 0;
     switch (dealSortField) {
       case 'status':
