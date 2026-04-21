@@ -398,19 +398,25 @@
 
   .bar-value {
     position: absolute;
-    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
     font-size: 10px;
     color: var(--text-sub);
     font-weight: 600;
     white-space: nowrap;
+    pointer-events: none;
+    z-index: 2;
   }
 
   .bar-achievement {
     position: absolute;
-    top: -36px;
+    left: 50%;
+    transform: translateX(-50%);
     font-size: 11px;
     font-weight: 700;
     white-space: nowrap;
+    pointer-events: none;
+    z-index: 3;
   }
   .bar-achievement.ok { color: #16a34a; }
   .bar-achievement.ng { color: #dc2626; }
@@ -3359,14 +3365,23 @@ function renderKPIs() {
   }
 }
 
+function currentMonthlyTargets() {
+  if (kpiCategoryFilter) {
+    const byCat = currentData().monthlyTargetsByCategory || {};
+    return (byCat[kpiCategoryFilter] || new Array(12).fill(0)).map(v => Number(v) || 0);
+  }
+  return (currentData().monthlyTargets || new Array(12).fill(0)).map(v => Number(v) || 0);
+}
+
 function renderMonthlyChart() {
   const data = monthlyTotalsByStatus();
   const monthTotals = MONTHS.map((_, i) =>
     STATUSES.reduce((s, st) => s + data[st][i], 0)
   );
+  const targets = currentMonthlyTargets();
   const prevActual = monthlyActualForFY(currentFY - 1);
   const hasPrev = prevActual.some(v => v > 0);
-  const rawMax = Math.max(...monthTotals, ...monthlyTargets, ...(hasPrev ? prevActual : [0]), 1);
+  const rawMax = Math.max(...monthTotals, ...targets, ...(hasPrev ? prevActual : [0]), 1);
   const chartMax = niceMax(rawMax * 1.1);
 
   // Y-axis labels
@@ -3423,30 +3438,37 @@ function renderMonthlyChart() {
     stack.addEventListener('mousemove', (e) => moveTooltip(e));
     stack.addEventListener('mouseleave', hideTooltip);
 
-    const valueLabel = document.createElement('div');
-    valueLabel.className = 'bar-value';
-    if (monthTotals[i] > 0) {
-      valueLabel.textContent = fmtShort(monthTotals[i]);
-    }
-    stack.appendChild(valueLabel);
-
-    // Achievement rate label (above amount label)
-    if (monthlyTargets[i] > 0) {
-      const rate = Math.round((monthTotals[i] / monthlyTargets[i]) * 100);
-      const rateLabel = document.createElement('div');
-      rateLabel.className = 'bar-achievement ' + (rate >= 100 ? 'ok' : 'ng');
-      rateLabel.textContent = rate + '%';
-      stack.appendChild(rateLabel);
-    }
-
     group.appendChild(stack);
 
+    const targetPct = targets[i] > 0 ? (targets[i] / chartMax) * 100 : 0;
+
+    // Amount label just above the bar top
+    if (monthTotals[i] > 0) {
+      const valueLabel = document.createElement('div');
+      valueLabel.className = 'bar-value';
+      valueLabel.style.bottom = `calc(${heightPct}% + 2px)`;
+      valueLabel.textContent = fmtShort(monthTotals[i]);
+      group.appendChild(valueLabel);
+    }
+
+    // Achievement rate label (above whichever is higher: bar or target)
+    if (targets[i] > 0) {
+      const rate = Math.round((monthTotals[i] / targets[i]) * 100);
+      const rateLabel = document.createElement('div');
+      rateLabel.className = 'bar-achievement ' + (rate >= 100 ? 'ok' : 'ng');
+      const topPct = Math.max(heightPct, targetPct);
+      const extraOffset = monthTotals[i] > 0 && heightPct >= targetPct ? 18 : 4;
+      rateLabel.style.bottom = `calc(${topPct}% + ${extraOffset}px)`;
+      rateLabel.textContent = rate + '%';
+      group.appendChild(rateLabel);
+    }
+
     // Target marker
-    if (monthlyTargets[i] > 0) {
+    if (targets[i] > 0) {
       const marker = document.createElement('div');
       marker.className = 'target-marker';
-      marker.style.bottom = ((monthlyTargets[i] / chartMax) * 100) + '%';
-      marker.title = `目標: ${fmtYen(monthlyTargets[i])}`;
+      marker.style.bottom = (targetPct) + '%';
+      marker.title = `目標: ${fmtYen(targets[i])}`;
       group.appendChild(marker);
     }
 
