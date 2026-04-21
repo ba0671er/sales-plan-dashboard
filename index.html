@@ -1930,7 +1930,9 @@
               <td><select id="dfCategory" onchange="applyDealFilters()"><option value="">全て</option></select></td>
               <td><input id="dfClient" type="text" placeholder="検索…" oninput="applyDealFilters()" class="deal-filter-input" /></td>
               <td><input id="dfProject" type="text" placeholder="検索…" oninput="applyDealFilters()" class="deal-filter-input" /></td>
-              <td colspan="10"></td>
+              <td><input id="dfStartFrom" type="date" onchange="applyDealFilters()" class="deal-filter-input" title="開始日以降" /></td>
+              <td><input id="dfEndTo" type="date" onchange="applyDealFilters()" class="deal-filter-input" title="終了日以前" /></td>
+              <td colspan="8"></td>
             </tr>
           </thead>
           <tbody id="dealsBody"></tbody>
@@ -3941,7 +3943,7 @@ function renderRanking() {
 
 let dealSortField = 'start';
 let dealSortDir = 1;
-let dealFilters = { status: '', category: '', client: '', project: '' };
+let dealFilters = { status: '', category: '', client: '', project: '', startFrom: '', endTo: '' };
 
 function sortDealsBy(field) {
   if (dealSortField === field) {
@@ -3958,6 +3960,8 @@ function applyDealFilters() {
   dealFilters.category = (document.getElementById('dfCategory') || {}).value || '';
   dealFilters.client = (document.getElementById('dfClient') || {}).value.trim().toLowerCase();
   dealFilters.project = (document.getElementById('dfProject') || {}).value.trim().toLowerCase();
+  dealFilters.startFrom = (document.getElementById('dfStartFrom') || {}).value || '';
+  dealFilters.endTo = (document.getElementById('dfEndTo') || {}).value || '';
   renderTable();
 }
 
@@ -3983,6 +3987,8 @@ function getFilteredDealsList() {
     if (dealFilters.category && (d.category || '') !== dealFilters.category) return false;
     if (dealFilters.client && !(d.client || '').toLowerCase().includes(dealFilters.client)) return false;
     if (dealFilters.project && !(d.project || '').toLowerCase().includes(dealFilters.project)) return false;
+    if (dealFilters.startFrom && (d.start || '') < dealFilters.startFrom) return false;
+    if (dealFilters.endTo && (d.end || '9999') > dealFilters.endTo) return false;
     return true;
   });
 }
