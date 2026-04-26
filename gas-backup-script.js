@@ -10,6 +10,8 @@
 //    - 実行ユーザー: 自分
 //    - アクセスできるユーザー: 全員
 // 6. デプロイ後に表示されるURLをコピーし、ダッシュボードの設定に貼り付け
+//
+// ※ 復元機能を使うには、GASを再デプロイしてください
 // ============================================================
 
 const FOLDER_NAME = '売上計画バックアップ';
@@ -51,12 +53,65 @@ function doPost(e) {
 }
 
 function doGet(e) {
+  var action = (e && e.parameter && e.parameter.action) || '';
+
+  if (action === 'latest') {
+    return getLatestBackup();
+  }
+
   return ContentService
     .createTextOutput(JSON.stringify({
       success: true,
       message: '売上計画バックアップAPIは正常に動作しています'
     }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getLatestBackup() {
+  try {
+    var folder = getOrCreateFolder(FOLDER_NAME);
+    var files = folder.getFiles();
+    var latest = null;
+    var latestDate = null;
+
+    while (files.hasNext()) {
+      var file = files.next();
+      var created = file.getDateCreated();
+      if (!latestDate || created > latestDate) {
+        latestDate = created;
+        latest = file;
+      }
+    }
+
+    if (!latest) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          message: 'バックアップファイルが見つかりません'
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var content = latest.getBlob().getDataAsString();
+    var data = JSON.parse(content);
+
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        fileName: latest.getName(),
+        createdAt: latestDate.toISOString(),
+        data: data
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        message: '復元エラー: ' + error.message
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 function getOrCreateFolder(name) {

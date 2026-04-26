@@ -5095,6 +5095,7 @@ function openDriveSettings() {
     return;
   }
   saveDriveConfig({ gasUrl: url.trim(), enabled: true });
+  saveGasUrlToHash(url.trim());
   updateDriveStatusUI();
   alert('設定を保存しました。テストバックアップを実行します...');
   executeDriveBackup(true);
@@ -5162,6 +5163,7 @@ function manualDriveBackup() {
 function checkAutoBackup() {
   const config = getDriveConfig();
   if (!config.gasUrl || !config.enabled) return;
+  if (!getGasUrlFromHash()) saveGasUrlToHash(config.gasUrl);
 
   const log = getDriveLog();
   const lastBackup = log.lastBackup ? new Date(log.lastBackup) : null;
@@ -5202,6 +5204,78 @@ function updateDriveStatusUI() {
     driveIcon.textContent = '☁';
     driveIcon.style.color = '#fbbf24';
     driveText.textContent = 'Drive: 未バックアップ';
+  }
+}
+
+// ========== Drive Auto-Restore ==========
+function saveGasUrlToHash(url) {
+  if (url) {
+    try { history.replaceState(null, '', '#gas=' + encodeURIComponent(url)); } catch(e) {}
+  }
+}
+
+function getGasUrlFromHash() {
+  const h = location.hash || '';
+  const m = h.match(/^#gas=(.+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+async function tryAutoRestore() {
+  const raw = localStorage.getItem('uriage_store_v2');
+  if (raw) {
+    const hashUrl = getGasUrlFromHash();
+    if (hashUrl) {
+      const config = getDriveConfig();
+      if (!config.gasUrl) {
+        saveDriveConfig({ gasUrl: hashUrl, enabled: true });
+      }
+    }
+    return false;
+  }
+
+  let gasUrl = getGasUrlFromHash();
+  if (!gasUrl) return false;
+
+  try {
+    const banner = document.createElement('div');
+    banner.id = 'restoreBanner';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#2563eb;color:white;padding:14px 20px;text-align:center;font-size:14px;font-weight:600;box-shadow:0 2px 12px rgba(0,0,0,0.2);';
+    banner.textContent = '⟳ Google Drive から最新バックアップを復元しています...';
+    document.body.appendChild(banner);
+
+    const res = await fetch(gasUrl + '?action=latest', { redirect: 'follow' });
+    const json = await res.json();
+
+    if (!json.success || !json.data) {
+      banner.style.background = '#dc2626';
+      banner.textContent = '✗ 復元失敗: ' + (json.message || 'バックアップが見つかりません');
+      setTimeout(() => banner.remove(), 5000);
+      return false;
+    }
+
+    const backupData = json.data.store || json.data;
+    localStorage.setItem('uriage_store_v2', JSON.stringify(backupData));
+    saveDriveConfig({ gasUrl: gasUrl, enabled: true });
+
+    const d = json.createdAt ? new Date(json.createdAt) : null;
+    const dateStr = d ? `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}` : '';
+    banner.style.background = '#16a34a';
+    banner.textContent = `✓ Google Drive から復元しました（${dateStr}${json.fileName ? ' / ' + json.fileName : ''}）`;
+    setTimeout(() => {
+      banner.remove();
+      location.reload();
+    }, 2500);
+    return true;
+
+  } catch(e) {
+    console.error('Auto-restore failed:', e);
+    const banner = document.getElementById('restoreBanner');
+    if (banner) {
+      banner.style.background = '#dc2626';
+      banner.textContent = '✗ 復元に失敗しました: ' + e.message;
+      setTimeout(() => banner.remove(), 5000);
+    }
+    return false;
   }
 }
 
@@ -7246,13 +7320,17 @@ function importTasksCSV(text, replace) {
 }
 
 // ========== Init ==========
-load();
-render();
-renderTaskView();
-updateDriveStatusUI();
-startFocusBarHeartbeat();
-// ページ読み込み後に自動バックアップチェック（3秒後）
-setTimeout(checkAutoBackup, 3000);
+(async function init() {
+  const restored = await tryAutoRestore();
+  if (restored) return;
+  load();
+  render();
+  renderTaskView();
+  updateDriveStatusUI();
+  startFocusBarHeartbeat();
+  // ページ読み込み後に自動バックアップチェック（3秒後）
+  setTimeout(checkAutoBackup, 3000);
+})();
 // 毎分、繰り返し＆アラート状態を更新
 setInterval(() => {
   processRecurringTasks();
