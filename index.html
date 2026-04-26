@@ -5234,7 +5234,16 @@ async function tryAutoRestore() {
   }
 
   let gasUrl = getGasUrlFromHash();
-  if (!gasUrl) return false;
+
+  if (!gasUrl) {
+    gasUrl = prompt(
+      'データが見つかりません。\n\n' +
+      'Google Drive から復元するには、GAS デプロイURLを入力してください。\n' +
+      '（キャンセルで空のまま開始）'
+    );
+    if (!gasUrl) return false;
+    gasUrl = gasUrl.trim();
+  }
 
   try {
     const banner = document.createElement('div');
@@ -5256,6 +5265,7 @@ async function tryAutoRestore() {
     const backupData = json.data.store || json.data;
     localStorage.setItem('uriage_store_v2', JSON.stringify(backupData));
     saveDriveConfig({ gasUrl: gasUrl, enabled: true });
+    saveGasUrlToHash(gasUrl);
 
     const d = json.createdAt ? new Date(json.createdAt) : null;
     const dateStr = d ? `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}` : '';
