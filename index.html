@@ -7321,8 +7321,12 @@ function importTasksCSV(text, replace) {
 
 // ========== Init ==========
 (async function init() {
-  const restored = await tryAutoRestore();
-  if (restored) return;
+  try {
+    const restored = await tryAutoRestore();
+    if (restored) return;
+  } catch(e) {
+    console.error('Auto-restore error:', e);
+  }
   load();
   render();
   renderTaskView();
