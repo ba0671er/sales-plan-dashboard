@@ -2,25 +2,27 @@
 // Google Apps Script - 売上計画ダッシュボード 自動バックアップ
 // ============================================================
 // 使い方:
-// 1. Google Drive に「売上計画バックアップ」フォルダを作成
-// 2. https://script.google.com にアクセス
-// 3. 新しいプロジェクトを作成し、このコードを貼り付け
-// 4. FOLDER_NAME を必要に応じて変更
-// 5. 「デプロイ」→「新しいデプロイ」→「ウェブアプリ」を選択
+// 1. Google Drive にバックアップ用フォルダを作成
+// 2. フォルダを開いてURLからフォルダIDを取得
+//    例: https://drive.google.com/drive/folders/XXXXXXXX → XXXXXXXX がID
+// 3. 下の FOLDER_ID にそのIDを設定
+// 4. https://script.google.com にアクセス
+// 5. 新しいプロジェクトを作成し、このコードを貼り付け
+// 6. 「デプロイ」→「新しいデプロイ」→「ウェブアプリ」を選択
 //    - 実行ユーザー: 自分
 //    - アクセスできるユーザー: 全員
-// 6. デプロイ後に表示されるURLをコピーし、ダッシュボードの設定に貼り付け
+// 7. デプロイ後に表示されるURLをコピーし、ダッシュボードの設定に貼り付け
 //
 // ※ 復元機能を使うには、GASを再デプロイしてください
 // ============================================================
 
-const FOLDER_NAME = '売上計画バックアップ';
+const FOLDER_ID = 'ここにフォルダIDを貼り付け'; // ← Driveフォルダのidに置き換え
 const MAX_BACKUP_DAYS = 30; // 30日以上前のバックアップを自動削除
 
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
-    const folder = getOrCreateFolder(FOLDER_NAME);
+    const folder = DriveApp.getFolderById(FOLDER_ID);
 
     // ファイル名: バックアップ_YYYY-MM-DD_HHmmss.json
     const now = new Date();
@@ -69,7 +71,7 @@ function doGet(e) {
 
 function getLatestBackup() {
   try {
-    var folder = getOrCreateFolder(FOLDER_NAME);
+    var folder = DriveApp.getFolderById(FOLDER_ID);
     var files = folder.getFiles();
     var latest = null;
     var latestDate = null;
@@ -87,7 +89,7 @@ function getLatestBackup() {
       return ContentService
         .createTextOutput(JSON.stringify({
           success: false,
-          message: 'バックアップファイルが見つかりません'
+          message: 'バックアップファイルが見つかりません（フォルダID: ' + FOLDER_ID + '）'
         }))
         .setMimeType(ContentService.MimeType.JSON);
     }
@@ -112,14 +114,6 @@ function getLatestBackup() {
       }))
       .setMimeType(ContentService.MimeType.JSON);
   }
-}
-
-function getOrCreateFolder(name) {
-  const folders = DriveApp.getFoldersByName(name);
-  if (folders.hasNext()) {
-    return folders.next();
-  }
-  return DriveApp.createFolder(name);
 }
 
 function cleanOldBackups(folder) {
