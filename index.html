@@ -5165,6 +5165,14 @@ function checkAutoBackup() {
   if (!config.gasUrl || !config.enabled) return;
   if (!getGasUrlFromHash()) saveGasUrlToHash(config.gasUrl);
 
+  // データが空の場合は自動バックアップしない（既存の良質なバックアップを保護）
+  const totalDeals = (store && store.data) ? Object.values(store.data).reduce((sum, d) => sum + ((d && d.deals) ? d.deals.length : 0), 0) : 0;
+  const totalTasks = (store && Array.isArray(store.tasks)) ? store.tasks.length : 0;
+  if (totalDeals === 0 && totalTasks === 0) {
+    console.log('[自動バックアップ] データが空のためスキップ');
+    return;
+  }
+
   const log = getDriveLog();
   const lastBackup = log.lastBackup ? new Date(log.lastBackup) : null;
   const now = new Date();
