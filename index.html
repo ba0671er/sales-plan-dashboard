@@ -1630,10 +1630,12 @@
   .gantt-table th, .gantt-table td { border: 1px solid var(--border); padding: 0; text-align: center; font-size: 12px; }
   .gantt-table th { background: var(--bg); padding: 4px 2px; position: sticky; top: 0; z-index: 2; }
   .gantt-label-cell { position: sticky; left: 0; background: var(--card-bg); z-index: 3; white-space: nowrap; padding: 4px 8px !important; text-align: left !important; font-size: 12px; }
-  .gantt-table thead th:first-child, .gantt-table thead th:nth-child(2), .gantt-table thead th:nth-child(3) { position: sticky; z-index: 4; }
+  .gantt-table thead th:first-child, .gantt-table thead th:nth-child(2), .gantt-table thead th:nth-child(3), .gantt-table thead th:nth-child(4) { position: sticky; z-index: 4; }
   .gantt-table thead th:first-child { left: 0; }
   .gantt-table thead th:nth-child(2) { left: 120px; }
   .gantt-table thead th:nth-child(3) { left: 220px; }
+  .gantt-table thead th:nth-child(4) { left: 340px; }
+  .gantt-due-cell { font-size: 11px; color: var(--text-sub); white-space: nowrap; }
   .gantt-client-name { font-weight: 700; font-size: 13px; }
   .gantt-store-name { font-weight: 600; color: var(--text-sub); padding-left: 4px !important; }
   .gantt-task-name { font-weight: 400; color: var(--text-main); padding-left: 4px !important; }
@@ -2300,6 +2302,7 @@
         <button class="btn-secondary" onclick="prevGanttMonth()">◀</button>
         <span id="ganttMonthLabel" style="font-weight:700;font-size:16px;"></span>
         <button class="btn-secondary" onclick="nextGanttMonth()">▶</button>
+        <label style="font-size:13px;cursor:pointer;margin-left:12px;"><input type="checkbox" id="ganttShowCompleted" onchange="renderGantt()" /> 完了タスクを表示</label>
         <button class="btn-primary" onclick="archiveGanttMonth()" style="margin-left:auto;">📦 月次アーカイブ</button>
       </div>
       <div class="gantt-wrapper" style="overflow-x:auto;">
@@ -7421,11 +7424,13 @@ function renderGantt() {
 
   document.getElementById('ganttMonthLabel').textContent = year + '年' + (month + 1) + '月';
 
+  const showCompleted = (document.getElementById('ganttShowCompleted') || {}).checked || false;
   const allDeals = (store.data[currentFY] && store.data[currentFY].deals || []);
   const jissekiClients = new Set(allDeals.filter(d => d.status === '実績').map(d => d.client).filter(Boolean));
 
   const tasks = (store.tasks || []).filter(t => {
     if (!jissekiClients.has(t.client)) return false;
+    if (!showCompleted && isCompletedStatus(t.status)) return false;
     return true;
   });
 
@@ -7446,6 +7451,7 @@ function renderGantt() {
   html += '<th style="min-width:120px;left:0;background:var(--bg);">クライアント</th>';
   html += '<th style="min-width:100px;left:120px;background:var(--bg);">ストア</th>';
   html += '<th style="min-width:120px;left:220px;background:var(--bg);">タスク</th>';
+  html += '<th style="min-width:60px;left:340px;background:var(--bg);">締切</th>';
   for (let d = 1; d <= daysInMonth; d++) {
     const dt = new Date(year, month, d);
     const dow = dt.getDay();
@@ -7470,6 +7476,7 @@ function renderGantt() {
       html += '<tr><td class="gantt-label-cell gantt-client-name" style="left:0;">' + escapeHtml(client) + alertIcon + '</td>';
       html += '<td class="gantt-label-cell gantt-store-name" style="left:120px;">—</td>';
       html += '<td class="gantt-label-cell gantt-task-name" style="left:220px;">—</td>';
+      html += '<td class="gantt-label-cell gantt-due-cell" style="left:340px;"></td>';
       for (let d = 1; d <= daysInMonth; d++) {
         const dt = new Date(year, month, d);
         const dow = dt.getDay();
@@ -7489,6 +7496,7 @@ function renderGantt() {
         html += '<td class="gantt-label-cell gantt-client-name" style="left:0;">' + (firstClient ? escapeHtml(client) + alertIcon : '') + '</td>';
         html += '<td class="gantt-label-cell gantt-store-name" style="left:120px;">' + escapeHtml(storeName) + '</td>';
         html += '<td class="gantt-label-cell gantt-task-name" style="left:220px;">—</td>';
+        html += '<td class="gantt-label-cell gantt-due-cell" style="left:340px;"></td>';
         for (let d = 1; d <= daysInMonth; d++) {
           const dt = new Date(year, month, d);
           const dow = dt.getDay();
@@ -7507,11 +7515,13 @@ function renderGantt() {
         const taskEnd = task.dueDate || '';
         const isComp = isCompletedStatus(task.status);
         const color = isComp ? '#86efac' : barColors[ti % barColors.length];
+        const dueDisplay = taskEnd ? (new Date(taskEnd).getMonth()+1) + '/' + new Date(taskEnd).getDate() : '';
 
         html += '<tr>';
         html += '<td class="gantt-label-cell gantt-client-name" style="left:0;">' + (firstClient ? escapeHtml(client) + alertIcon : '') + '</td>';
         html += '<td class="gantt-label-cell gantt-store-name" style="left:120px;">' + (firstStore ? escapeHtml(storeName) : '') + '</td>';
         html += '<td class="gantt-label-cell gantt-task-name" style="left:220px;">' + escapeHtml(task.content || '') + '</td>';
+        html += '<td class="gantt-label-cell gantt-due-cell" style="left:340px;">' + dueDisplay + '</td>';
 
         for (let d = 1; d <= daysInMonth; d++) {
           const dt = new Date(year, month, d);
