@@ -1625,6 +1625,22 @@
     font-size: 16px;
     color: var(--primary);
   }
+  .gantt-wrapper { overflow-x: auto; }
+  .gantt-table { border-collapse: collapse; min-width: 100%; }
+  .gantt-table th, .gantt-table td { border: 1px solid var(--border); padding: 0; text-align: center; font-size: 12px; }
+  .gantt-table th { background: var(--bg); padding: 4px 2px; position: sticky; top: 0; z-index: 2; }
+  .gantt-client-cell { position: sticky; left: 0; background: var(--card-bg); z-index: 3; white-space: nowrap; padding: 6px 10px !important; text-align: left !important; font-size: 13px; font-weight: 600; min-width: 140px; }
+  .gantt-table thead th:first-child { position: sticky; left: 0; z-index: 4; }
+  .gantt-day-cell { width: 28px; min-width: 28px; height: 32px; position: relative; }
+  .gantt-day-cell.weekend { background: #f9fafb; }
+  .gantt-day-cell.today { background: #eff6ff; box-shadow: inset 0 -2px 0 var(--primary); }
+  .gantt-bar { position: absolute; top: 6px; height: 12px; border-radius: 3px; opacity: 0.85; pointer-events: none; }
+  .gantt-task-marker { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 8px; height: 8px; border-radius: 50%; background: var(--warning); border: 1.5px solid #fff; box-shadow: 0 0 2px rgba(0,0,0,.3); }
+  .gantt-task-marker.completed { background: var(--success); }
+  .gantt-alert { color: var(--danger); margin-left: 4px; font-size: 14px; cursor: help; }
+  .gantt-archive-banner { background: var(--danger); color: #fff; padding: 10px 16px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; }
+  .gantt-archive-banner ul { margin: 4px 0 0 16px; padding: 0; }
+  .gantt-header-dow { font-size: 10px; color: var(--text-sub); }
 </style>
 </head>
 <body>
@@ -1657,6 +1673,7 @@
   <div class="tabs">
     <button class="tab-btn active" id="tab-btn-sales" onclick="switchTab('sales')">📊 売上管理</button>
     <button class="tab-btn" id="tab-btn-tasks" onclick="switchTab('tasks')">✓ タスク管理 <span id="tabTaskAlertBadge" style="display:none; background:var(--danger); color:white; border-radius:10px; padding:1px 7px; font-size:11px; margin-left:4px;">0</span></button>
+    <button class="tab-btn" id="tab-btn-gantt" onclick="switchTab('gantt')">📅 ガントチャート</button>
   </div>
 
   <!-- Sales Tab -->
@@ -2265,6 +2282,23 @@
     </div>
 
   </div><!-- /tasks-tab -->
+
+  <!-- Gantt Tab -->
+  <div id="gantt-tab" class="tab-content">
+    <div id="ganttArchiveAlerts"></div>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+        <h3 style="margin:0;">ガントチャート（実績案件）</h3>
+        <button class="btn-secondary" onclick="prevGanttMonth()">◀</button>
+        <span id="ganttMonthLabel" style="font-weight:700;font-size:16px;"></span>
+        <button class="btn-secondary" onclick="nextGanttMonth()">▶</button>
+        <button class="btn-primary" onclick="archiveGanttMonth()" style="margin-left:auto;">📦 月次アーカイブ</button>
+      </div>
+      <div class="gantt-wrapper" style="overflow-x:auto;">
+        <div id="ganttChart"></div>
+      </div>
+    </div>
+  </div><!-- /gantt-tab -->
 
 </div>
 
@@ -5307,12 +5341,13 @@ function switchTab(tabName) {
   if (content) content.classList.add('active');
   if (btn) btn.classList.add('active');
   if (tabName === 'tasks') {
-    // Re-process recurring and archive each time we open the tab
     processRecurringTasks();
     archiveCompletedTasks();
     populateTaskFormDropdowns();
     populateTaskFilterDropdowns();
     renderTaskView();
+  } else if (tabName === 'gantt') {
+    renderGantt();
   } else {
     render();
   }
@@ -7360,6 +7395,152 @@ setInterval(() => {
   if (currentTab === 'tasks') renderTaskView();
   else renderTaskKPIs();
 }, 60 * 1000);
+
+// ========== Gantt Chart ==========
+let ganttMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+function prevGanttMonth() { ganttMonth = new Date(ganttMonth.getFullYear(), ganttMonth.getMonth() - 1, 1); renderGantt(); }
+function nextGanttMonth() { ganttMonth = new Date(ganttMonth.getFullYear(), ganttMonth.getMonth() + 1, 1); renderGantt(); }
+
+function renderGantt() {
+  const year = ganttMonth.getFullYear();
+  const month = ganttMonth.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayStr = today.toISOString().slice(0, 10);
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month, daysInMonth);
+
+  document.getElementById('ganttMonthLabel').textContent = year + '年' + (month + 1) + '月';
+
+  const deals = (store.data[currentFY] && store.data[currentFY].deals || []).filter(d => d.status === '実績');
+  const activeDeals = deals.filter(d => {
+    const s = d.start ? new Date(d.start) : null;
+    const e = d.end ? new Date(d.end) : null;
+    if (!s && !e) return false;
+    if (s && s > monthEnd) return false;
+    if (e && e < monthStart) return false;
+    return true;
+  });
+
+  const clientMap = {};
+  activeDeals.forEach(d => {
+    const c = d.client || '（未設定）';
+    if (!clientMap[c]) clientMap[c] = [];
+    clientMap[c].push(d);
+  });
+  const clients = Object.keys(clientMap).sort();
+
+  const tasks = (store.tasks || []);
+  const barColors = ['#60a5fa','#a78bfa','#f472b6','#34d399','#fbbf24','#fb923c','#67e8f9','#c084fc','#f87171','#4ade80'];
+
+  let html = '<table class="gantt-table"><thead><tr><th style="min-width:140px;">クライアント</th>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(year, month, d);
+    const dow = dt.getDay();
+    const isWeekend = dow === 0 || dow === 6;
+    const isToday = dt.toISOString().slice(0,10) === todayStr;
+    const cls = ['gantt-day-cell', isWeekend ? 'weekend' : '', isToday ? 'today' : ''].filter(Boolean).join(' ');
+    const dowLabel = ['日','月','火','水','木','金','土'][dow];
+    html += '<th class="' + cls + '">' + d + '<br><span class="gantt-header-dow">' + dowLabel + '</span></th>';
+  }
+  html += '</tr></thead><tbody>';
+
+  clients.forEach((client, ci) => {
+    const clientTasks = tasks.filter(t => t.client === client);
+    const hasNextTask = clientTasks.some(t => {
+      if (isCompletedStatus(t.status)) return false;
+      if (!t.dueDate) return false;
+      return t.dueDate >= todayStr;
+    });
+    const alertHtml = hasNextTask ? '' : '<span class="gantt-alert" title="次のアクションタスクがありません">⚠</span>';
+    html += '<tr><td class="gantt-client-cell">' + escapeHtml(client) + alertHtml + '</td>';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dt = new Date(year, month, d);
+      const dateStr = dt.toISOString().slice(0, 10);
+      const dow = dt.getDay();
+      const isWeekend = dow === 0 || dow === 6;
+      const isToday = dateStr === todayStr;
+      const cls = ['gantt-day-cell', isWeekend ? 'weekend' : '', isToday ? 'today' : ''].filter(Boolean).join(' ');
+      let cellContent = '';
+
+      clientMap[client].forEach((deal, di) => {
+        const ds = deal.start || '';
+        const de = deal.end || '';
+        if (ds && ds <= dateStr && de && de >= dateStr) {
+          const isStart = ds === dateStr || (d === 1 && ds < dateStr);
+          const isEnd = de === dateStr || (d === daysInMonth && de > dateStr);
+          const color = barColors[(ci + di) % barColors.length];
+          let style = 'background:' + color + ';';
+          if (isStart && isEnd) { style += 'left:2px;right:2px;border-radius:3px;'; }
+          else if (isStart) { style += 'left:2px;right:0;border-radius:3px 0 0 3px;'; }
+          else if (isEnd) { style += 'left:0;right:2px;border-radius:0 3px 3px 0;'; }
+          else { style += 'left:0;right:0;border-radius:0;'; }
+          cellContent += '<div class="gantt-bar" style="' + style + '" title="' + escapeAttr(deal.project || '') + '"></div>';
+        }
+      });
+
+      clientTasks.forEach(t => {
+        if (t.dueDate === dateStr) {
+          const comp = isCompletedStatus(t.status) ? ' completed' : '';
+          cellContent += '<div class="gantt-task-marker' + comp + '" title="' + escapeAttr(t.content || '') + '"></div>';
+        }
+      });
+
+      html += '<td class="' + cls + '">' + cellContent + '</td>';
+    }
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  if (clients.length === 0) {
+    html = '<p style="color:var(--text-sub);text-align:center;padding:32px 0;">この月に該当する実績案件はありません。</p>';
+  }
+  document.getElementById('ganttChart').innerHTML = html;
+  renderGanttAlerts();
+}
+
+function archiveGanttMonth() {
+  if (!store.ganttArchive) store.ganttArchive = {};
+  const year = ganttMonth.getFullYear();
+  const month = ganttMonth.getMonth();
+  const key = year + '-' + String(month + 1).padStart(2, '0');
+  const monthEnd = new Date(year, month + 1, 0).toISOString().slice(0, 10);
+  const monthStart = year + '-' + String(month + 1).padStart(2, '0') + '-01';
+
+  const incomplete = (store.tasks || []).filter(t => {
+    if (!t.dueDate) return false;
+    if (t.dueDate < monthStart || t.dueDate > monthEnd) return false;
+    return !isCompletedStatus(t.status);
+  }).map(t => ({ client: t.client || '', content: t.content || '', dueDate: t.dueDate }));
+
+  store.ganttArchive[key] = { archivedAt: new Date().toISOString(), incompleteAlerts: incomplete };
+  save();
+  renderGanttAlerts();
+  if (incomplete.length > 0) {
+    alert('⚠ ' + key + ' に未完了タスクが ' + incomplete.length + ' 件あります。ページ上部のバナーを確認してください。');
+  } else {
+    alert('✓ ' + key + ' のアーカイブが完了しました。未完了タスクはありません。');
+  }
+}
+
+function renderGanttAlerts() {
+  const el = document.getElementById('ganttArchiveAlerts');
+  if (!el) return;
+  if (!store.ganttArchive) { el.innerHTML = ''; return; }
+  const year = ganttMonth.getFullYear();
+  const month = ganttMonth.getMonth();
+  const key = year + '-' + String(month + 1).padStart(2, '0');
+  const archive = store.ganttArchive[key];
+  if (!archive || !archive.incompleteAlerts || archive.incompleteAlerts.length === 0) { el.innerHTML = ''; return; }
+  let html = '<div class="gantt-archive-banner">⚠ ' + key + ' アーカイブ時の未完了タスク:<ul>';
+  archive.incompleteAlerts.forEach(a => {
+    html += '<li>' + escapeHtml(a.client || '?') + ' – ' + escapeHtml(a.content) + '（期日: ' + escapeHtml(a.dueDate) + '）</li>';
+  });
+  html += '</ul></div>';
+  el.innerHTML = html;
+}
 </script>
 
 </body>
