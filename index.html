@@ -5690,6 +5690,44 @@ function recurringLabel(recurring) {
   return '';
 }
 
+function buildRecurringInlineHTML(t, eid) {
+  const r = t.recurring || {};
+  const type = r.type || '';
+  const day = r.day || '';
+  const typeOpts = [['','なし'],['daily','毎日'],['weekly','毎週'],['monthly','毎月']]
+    .map(([v,l]) => `<option value="${v}"${type === v ? ' selected' : ''}>${l}</option>`).join('');
+  let html = `<select class="inline-edit" style="font-size:11px;width:62px;" onchange="updateTaskRecurring('${eid}','type',this.value)">${typeOpts}</select>`;
+  if (type === 'weekly') {
+    const wOpts = WEEKDAY_NAMES.map((n,i) => `<option value="${i}"${String(day) === String(i) ? ' selected' : ''}>${n}</option>`).join('');
+    html += `<select class="inline-edit" style="font-size:11px;width:44px;margin-left:2px;" onchange="updateTaskRecurring('${eid}','day',this.value)">${wOpts}</select>`;
+  } else if (type === 'monthly') {
+    let mOpts = '';
+    for (let d = 1; d <= 31; d++) mOpts += `<option value="${d}"${String(day) === String(d) ? ' selected' : ''}>${d}日</option>`;
+    html += `<select class="inline-edit" style="font-size:11px;width:52px;margin-left:2px;" onchange="updateTaskRecurring('${eid}','day',this.value)">${mOpts}</select>`;
+  }
+  return html;
+}
+
+function updateTaskRecurring(id, field, value) {
+  const t = (store.tasks || []).find(x => x.id === id);
+  if (!t) return;
+  if (!t.recurring) t.recurring = {};
+  if (field === 'type') {
+    t.recurring.type = value;
+    if (value === 'weekly' && !t.recurring.day) t.recurring.day = '1';
+    if (value === 'monthly' && !t.recurring.day) t.recurring.day = '1';
+    if (!value) t.recurring = {};
+  } else {
+    t.recurring[field] = value;
+  }
+  if (t.recurring.type) {
+    const next = computeRecurringDueDate(t.recurring);
+    if (next) t.dueDate = next;
+  }
+  save();
+  renderTaskTable();
+}
+
 // ========== Weekly Review (B3) ==========
 // Compute the Monday-Sunday ISO week containing `date` → returns { start, end } YYYY-MM-DD
 function weekRange(date) {
@@ -6280,7 +6318,7 @@ function renderTaskTable() {
         ${buildTimeDisplayHTML(t)}
         <button type="button" class="${timerClass}" title="${timerTitle}" onclick="toggleTaskTimer('${eid}')">${timerIcon}</button>
       </td>
-      <td style="font-size:11px; color:var(--text-sub); white-space:nowrap;">${escapeHtml(recurringLabel(t.recurring))}</td>
+      <td style="white-space:nowrap;">${buildRecurringInlineHTML(t, eid)}</td>
       <td><input class="inline-edit" type="url" value="${escapeAttr(t.url || '')}" placeholder="URL" style="font-size:11px; min-width:80px;" onchange="updateTaskField('${eid}','url',this.value)" /></td>
       <td><input class="inline-edit" type="text" value="${escapeAttr(t.comment || '')}" placeholder="" style="font-size:12px; min-width:100px;" onchange="updateTaskField('${eid}','comment',this.value)" /></td>
       <td>
