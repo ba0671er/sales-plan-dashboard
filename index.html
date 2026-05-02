@@ -3974,6 +3974,7 @@ function renderRanking() {
     entry.deals.push(d);
     const monthlyContribs = dealMonthlyForMonths(d, rangeMonths);
     const rangeAmount = monthlyContribs.reduce((a, b) => a + b, 0);
+    if (d.status === '失注') { return; }
     entry.totalAmount += rangeAmount;
     if (d.status === '実績') entry.jissekiAmount += rangeAmount;
     else entry.mikomiAmount += rangeAmount;
