@@ -7488,7 +7488,10 @@ function renderGantt() {
 
   const showCompleted = (document.getElementById('ganttShowCompleted') || {}).checked || false;
   const allDeals = (store.data[currentFY] && store.data[currentFY].deals || []);
-  const jissekiClients = new Set(allDeals.filter(d => d.status === '実績').map(d => d.client).filter(Boolean));
+  const archivedDeals = (store.data[currentFY] && store.data[currentFY].archivedDeals || []);
+  const jissekiClients = new Set(
+    allDeals.concat(archivedDeals).filter(d => d.status === '実績').map(d => d.client).filter(Boolean)
+  );
 
   // Read current filter values before rebuilding dropdowns
   const filterCategoryEl = document.getElementById('ganttFilterCategory');
@@ -7498,12 +7501,12 @@ function renderGantt() {
   const filterClient = filterClientEl ? filterClientEl.value : '';
   const filterStore = filterStoreEl ? filterStoreEl.value : '';
 
-  // Collect all unique values for filter dropdowns from all eligible tasks (before filtering)
   const allTasks = (store.tasks || []).filter(t => {
-    if (!jissekiClients.has(t.client)) return false;
     if (!showCompleted && isCompletedStatus(t.status)) return false;
     return true;
   });
+  const taskClients = new Set(allTasks.map(t => t.client).filter(Boolean));
+  const ganttClients = new Set([...jissekiClients, ...taskClients]);
   const allCategories = [...new Set(allTasks.map(t => t.category || '').filter(Boolean))].sort();
   const allClients = [...new Set(allTasks.map(t => t.client || '').filter(Boolean))].sort();
   const allStores = [...new Set(allTasks.map(t => t.store || '').filter(Boolean))].sort();
@@ -7528,7 +7531,7 @@ function renderGantt() {
   });
 
   // Also filter the client set if client filter is active
-  const visibleClients = filterClient ? new Set([filterClient]) : jissekiClients;
+  const visibleClients = filterClient ? new Set([filterClient]) : ganttClients;
 
   const grouped = {};
   visibleClients.forEach(c => { if (!grouped[c]) grouped[c] = {}; });
