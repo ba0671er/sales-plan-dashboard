@@ -1983,6 +1983,23 @@
         </table>
       </div>
     </div>
+    <div style="margin-top:12px;">
+      <button class="btn-secondary" onclick="toggleArchivedDeals()">📦 アーカイブ済み案件を表示</button>
+      <div id="archivedDealsSection" style="display:none; margin-top:10px;">
+        <table class="archived-deals-table" style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead><tr style="border-bottom:2px solid var(--border);">
+            <th style="padding:6px;text-align:left;">ステータス</th>
+            <th style="padding:6px;text-align:left;">カテゴリ</th>
+            <th style="padding:6px;text-align:left;">クライアント</th>
+            <th style="padding:6px;text-align:left;">案件名</th>
+            <th style="padding:6px;">開始</th>
+            <th style="padding:6px;">終了</th>
+            <th style="padding:6px;text-align:right;">金額(万)</th>
+          </tr></thead>
+          <tbody id="archivedDealsBody"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   </div><!-- /sales-tab -->
@@ -2021,7 +2038,7 @@
       <div class="kpi-card task-done">
         <div class="kpi-label">完了</div>
         <div class="kpi-value" id="taskDoneValue">0</div>
-        <div class="kpi-sub">1週間後アーカイブ</div>
+        <div class="kpi-sub">翌月アーカイブ</div>
       </div>
     </div>
 
@@ -2303,6 +2320,9 @@
         <span id="ganttMonthLabel" style="font-weight:700;font-size:16px;"></span>
         <button class="btn-secondary" onclick="nextGanttMonth()">▶</button>
         <label style="font-size:13px;cursor:pointer;margin-left:12px;"><input type="checkbox" id="ganttShowCompleted" onchange="renderGantt()" /> 完了タスクを表示</label>
+        <select id="ganttFilterCategory" onchange="renderGantt()" style="font-size:13px;padding:4px 8px;"><option value="">全カテゴリ</option></select>
+        <select id="ganttFilterClient" onchange="renderGantt()" style="font-size:13px;padding:4px 8px;"><option value="">全クライアント</option></select>
+        <select id="ganttFilterStore" onchange="renderGantt()" style="font-size:13px;padding:4px 8px;"><option value="">全ストア</option></select>
         <button class="btn-primary" onclick="archiveGanttMonth()" style="margin-left:auto;">📦 月次アーカイブ</button>
       </div>
       <div class="gantt-wrapper" style="overflow-x:auto;">
@@ -2557,6 +2577,7 @@ function ensureFY(fy) {
   if (!store.data[fy].monthlyTargetsByCategory || typeof store.data[fy].monthlyTargetsByCategory !== 'object') {
     store.data[fy].monthlyTargetsByCategory = {};
   }
+  if (!Array.isArray(store.data[fy].archivedDeals)) store.data[fy].archivedDeals = [];
   // Normalize deals: ensure newer fields exist
   store.data[fy].deals.forEach(d => {
     if (typeof d.invoiceDate === 'undefined')   d.invoiceDate = '';
@@ -2994,6 +3015,7 @@ function load() {
   repairDealStatuses();
   // Also re-parse any non-ISO date strings left behind by older imports
   repairDealDates();
+  archiveExpiredDeals();
   currentFY = store.currentFY;
   MONTHS = buildMonths(currentFY);
   // Process recurring resets and archive on load
@@ -5625,8 +5647,7 @@ function processRecurringTasks() {
 // Archive non-recurring tasks that have been in a "completed" status for > 7 days
 function archiveCompletedTasks() {
   ensureTaskStore();
-  const now = Date.now();
-  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const currentMonth = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
   const keep = [];
   const archived = [];
   store.tasks.forEach(task => {
@@ -5635,8 +5656,8 @@ function archiveCompletedTasks() {
       return;
     }
     if (isCompletedStatus(task.status) && task.completedAt) {
-      const t = new Date(task.completedAt).getTime();
-      if (now - t > weekMs) {
+      const completedMonth = task.completedAt.slice(0, 7);
+      if (completedMonth < currentMonth) {
         archived.push({ ...task, archivedAt: new Date().toISOString() });
         return;
       }
@@ -7599,6 +7620,50 @@ function renderGanttAlerts() {
   });
   html += '</ul></div>';
   el.innerHTML = html;
+}
+
+// ========== Deal Archive ==========
+function archiveExpiredDeals() {
+  const today = new Date().toISOString().slice(0, 10);
+  const data = currentData();
+  if (!Array.isArray(data.archivedDeals)) data.archivedDeals = [];
+  const keep = [];
+  data.deals.forEach(d => {
+    if (d.end && d.end < today) {
+      data.archivedDeals.push({ ...d, archivedAt: new Date().toISOString() });
+    } else {
+      keep.push(d);
+    }
+  });
+  if (keep.length !== data.deals.length) {
+    data.deals = keep;
+    save();
+  }
+}
+
+function toggleArchivedDeals() {
+  const el = document.getElementById('archivedDealsSection');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  if (el.style.display === 'block') renderArchivedDeals();
+}
+
+function renderArchivedDeals() {
+  const tbody = document.getElementById('archivedDealsBody');
+  if (!tbody) return;
+  const archived = (currentData().archivedDeals || []).slice().sort((a, b) => (b.end || '').localeCompare(a.end || ''));
+  if (archived.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:12px;text-align:center;color:var(--text-sub);">アーカイブ済み案件はありません</td></tr>';
+    return;
+  }
+  tbody.innerHTML = archived.map(d => '<tr style="border-bottom:1px solid var(--border);">' +
+    '<td style="padding:5px 6px;">' + escapeHtml(d.status || '') + '</td>' +
+    '<td style="padding:5px 6px;">' + escapeHtml(d.category || '') + '</td>' +
+    '<td style="padding:5px 6px;">' + escapeHtml(d.client || '') + '</td>' +
+    '<td style="padding:5px 6px;">' + escapeHtml(d.project || '') + '</td>' +
+    '<td style="padding:5px 6px;text-align:center;">' + escapeHtml(d.start || '') + '</td>' +
+    '<td style="padding:5px 6px;text-align:center;">' + escapeHtml(d.end || '') + '</td>' +
+    '<td style="padding:5px 6px;text-align:right;">' + toMan(d.amount) + '</td>' +
+  '</tr>').join('');
 }
 </script>
 
