@@ -3345,6 +3345,7 @@ function monthlyTotalsByStatus() {
   const result = {};
   STATUSES.forEach(s => result[s] = MONTHS.map(() => 0));
   getFilteredDeals().forEach(d => {
+    if (d.status === '失注') return;
     if (!result[d.status]) {
       if (typeof console !== 'undefined') console.warn('[monthlyTotalsByStatus] Unknown deal status, skipped:', d.status, d);
       return;
