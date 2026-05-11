@@ -5301,7 +5301,16 @@ function getGasUrlFromHash() {
 
 async function tryAutoRestore() {
   const raw = localStorage.getItem('uriage_store_v2');
+  let hasData = false;
   if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      const data = parsed.data || {};
+      hasData = Object.values(data).some(fy => fy && Array.isArray(fy.deals) && fy.deals.length > 0);
+      if (!hasData) hasData = Array.isArray(parsed.tasks) && parsed.tasks.length > 0;
+    } catch(e) {}
+  }
+  if (hasData) {
     const hashUrl = getGasUrlFromHash();
     if (hashUrl) {
       const config = getDriveConfig();
