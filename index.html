@@ -5340,7 +5340,7 @@ async function tryAutoRestore() {
     banner.textContent = '⟳ Google Drive から最新バックアップを復元しています...';
     document.body.appendChild(banner);
 
-    const res = await fetch(gasUrl + '?action=latest', { redirect: 'follow' });
+    const res = await fetch(gasUrl, { redirect: 'follow' });
     const json = await res.json();
 
     if (!json.success || !json.data) {
