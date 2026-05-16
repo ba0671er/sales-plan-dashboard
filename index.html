@@ -4186,7 +4186,7 @@ function buildDealRow(d) {
     <td><input class="inline-edit" type="text" style="min-width:120px;" value="${escapeAttr(d.project || '')}" onchange="updateDealField('${eid}', 'project', this.value)" /></td>
     <td><input class="inline-edit dt" type="date" value="${escapeAttr(d.start || '')}" onchange="updateDealField('${eid}', 'start', this.value)" /></td>
     <td><input class="inline-edit dt" type="date" value="${escapeAttr(d.end || '')}" onchange="updateDealField('${eid}', 'end', this.value)" /></td>
-    <td class="num"><input class="inline-edit man" type="number" step="0.1" value="${toMan(d.amount)}" onchange="updateDealField('${eid}', 'amount', String(fromMan(this.value)))" /></td>
+    <td class="num"><input class="inline-edit man cell-amount" type="number" step="0.1" value="${toMan(d.amount)}" onchange="updateDealField('${eid}', 'amount', String(fromMan(this.value)))" /></td>
     <td class="num"><input class="inline-edit man cell-monthly" type="number" step="0.1" value="${toMan(perMonth)}" onchange="updateDealField('${eid}', 'monthly', String(fromMan(this.value)))" /></td>
     <td class="num cell-months">${months > 0 ? months : '—'}</td>
     <td class="num"><input class="inline-edit num hr" type="number" step="0.5" value="${monthlyHours || ''}" placeholder="0" onchange="updateDealField('${eid}', 'monthlyHours', this.value)" /></td>
@@ -4213,9 +4213,16 @@ function updateDealField(id, field, rawValue) {
     value = Number(String(value).replace(/[^\d.-]/g, '')) || 0;
   }
   if (field === 'monthly') {
-    // 月額を編集 → 契約金額 = 月額 × 月数 として更新
     const months = dealMonthCount(d);
     if (months > 0) d.amount = Math.round(value * months);
+  } else if (field === 'start' || field === 'end') {
+    const oldMonths = dealMonthCount(d);
+    const oldMonthly = oldMonths > 0 ? (Number(d.amount) || 0) / oldMonths : 0;
+    d[field] = value;
+    const newMonths = dealMonthCount(d);
+    if (oldMonthly > 0 && newMonths > 0) {
+      d.amount = Math.round(oldMonthly * newMonths);
+    }
   } else {
     d[field] = value;
   }
@@ -4250,6 +4257,10 @@ function refreshDealRowDerived(id) {
   const hourly = dealHourlyRate(d);
   const mCell = row.querySelector('.cell-months');
   if (mCell) mCell.textContent = months > 0 ? months : '—';
+  const aEl = row.querySelector('.cell-amount');
+  if (aEl && document.activeElement !== aEl) {
+    aEl.value = toMan(d.amount);
+  }
   const mEl = row.querySelector('.cell-monthly');
   if (mEl && document.activeElement !== mEl) {
     mEl.value = toMan(perMonth);
