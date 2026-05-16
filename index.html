@@ -2179,6 +2179,10 @@
             <label>ステータスで絞込</label>
             <div id="taskFilterStatusChecks" style="display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;"></div>
           </div>
+          <div class="form-field" style="min-width:100px;">
+            <label>期日</label>
+            <label style="display:flex;align-items:center;gap:3px;font-size:12px;cursor:pointer;"><input type="checkbox" id="taskFilterDue5" checked onchange="renderTaskTable()" style="margin:0;" />5日以内</label>
+          </div>
           <div class="form-field" style="min-width:200px; flex:1;">
             <label>キーワード検索</label>
             <input type="text" id="taskFilterKeyword" placeholder="タスク内容・コメント" oninput="renderTaskTable()" />
@@ -5504,6 +5508,8 @@ function clearTaskFilters() {
   document.querySelectorAll('#taskFilterStatusChecks input[type="checkbox"]').forEach(cb => {
     cb.checked = !isCompletedStatus(cb.value);
   });
+  const due5 = document.getElementById('taskFilterDue5');
+  if (due5) due5.checked = true;
   const k = document.getElementById('taskFilterKeyword');
   if (k) k.value = '';
   renderTaskTable();
@@ -6272,6 +6278,12 @@ function renderTaskTable() {
   if (filterStore)    tasks = tasks.filter(t => (t.store    || '') === filterStore);
   if (filterAssignee) tasks = tasks.filter(t => (t.assignee || '') === filterAssignee);
   if (checkedStatuses.size > 0) tasks = tasks.filter(t => checkedStatuses.has(t.status));
+  const due5 = (document.getElementById('taskFilterDue5') || {}).checked;
+  if (due5) {
+    const limit = new Date(); limit.setDate(limit.getDate() + 5);
+    const limitStr = limit.toISOString().slice(0, 10);
+    tasks = tasks.filter(t => !t.dueDate || t.dueDate <= limitStr);
+  }
   if (keyword) {
     tasks = tasks.filter(t =>
       (t.content || '').toLowerCase().includes(keyword) ||
