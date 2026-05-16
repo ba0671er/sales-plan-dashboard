@@ -2175,9 +2175,9 @@
             <label>ストアで絞込</label>
             <select id="taskFilterStore" onchange="renderTaskTable()"></select>
           </div>
-          <div class="form-field" style="min-width:140px;">
+          <div class="form-field" style="min-width:200px;">
             <label>ステータスで絞込</label>
-            <select id="taskFilterStatus" onchange="renderTaskTable()"></select>
+            <div id="taskFilterStatusChecks" style="display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;"></div>
           </div>
           <div class="form-field" style="min-width:200px; flex:1;">
             <label>キーワード検索</label>
@@ -5475,16 +5475,34 @@ function populateTaskFilterDropdowns() {
   const stores    = getTaskStores().map(c => c.name);
   const assignees = getTaskAssignees().map(c => c.name);
   populateSelect(document.getElementById('taskFilterCategory'), cats, null, 'すべて');
-  populateSelect(document.getElementById('taskFilterStatus'),   statuses, null, 'すべて');
-  populateSelect(document.getElementById('taskFilterClient'),   clients, null, 'すべて');
+  populateStatusCheckboxes(statuses);
+  populateSelect(document.getElementById('taskFilterClient'), clients, null, 'すべて');
   populateSelect(document.getElementById('taskFilterStore'),    stores,  null, 'すべて');
   populateSelect(document.getElementById('taskFilterAssignee'), assignees, null, 'すべて');
 }
 
+function populateStatusCheckboxes(statuses) {
+  const container = document.getElementById('taskFilterStatusChecks');
+  if (!container) return;
+  const existing = {};
+  container.querySelectorAll('input[type="checkbox"]').forEach(cb => { existing[cb.value] = cb.checked; });
+  container.innerHTML = '';
+  statuses.forEach(s => {
+    const checked = s in existing ? existing[s] : !isCompletedStatus(s);
+    const label = document.createElement('label');
+    label.style.cssText = 'display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;';
+    label.innerHTML = `<input type="checkbox" value="${escapeAttr(s)}" ${checked ? 'checked' : ''} onchange="renderTaskTable()" style="margin:0;" />${escapeHtml(s)}`;
+    container.appendChild(label);
+  });
+}
+
 function clearTaskFilters() {
-  ['taskFilterCategory','taskFilterStatus','taskFilterClient','taskFilterStore','taskFilterAssignee'].forEach(id => {
+  ['taskFilterCategory','taskFilterClient','taskFilterStore','taskFilterAssignee'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
+  });
+  document.querySelectorAll('#taskFilterStatusChecks input[type="checkbox"]').forEach(cb => {
+    cb.checked = !isCompletedStatus(cb.value);
   });
   const k = document.getElementById('taskFilterKeyword');
   if (k) k.value = '';
@@ -6244,7 +6262,8 @@ function renderTaskTable() {
   const filterClient   = (document.getElementById('taskFilterClient')   || {}).value || '';
   const filterStore    = (document.getElementById('taskFilterStore')    || {}).value || '';
   const filterAssignee = (document.getElementById('taskFilterAssignee') || {}).value || '';
-  const filterStatus   = (document.getElementById('taskFilterStatus')   || {}).value || '';
+  const checkedStatuses = new Set();
+  document.querySelectorAll('#taskFilterStatusChecks input[type="checkbox"]:checked').forEach(cb => checkedStatuses.add(cb.value));
   const keyword = ((document.getElementById('taskFilterKeyword') || {}).value || '').toLowerCase().trim();
 
   let tasks = (store.tasks || []).slice();
@@ -6252,7 +6271,7 @@ function renderTaskTable() {
   if (filterClient)   tasks = tasks.filter(t => (t.client   || '') === filterClient);
   if (filterStore)    tasks = tasks.filter(t => (t.store    || '') === filterStore);
   if (filterAssignee) tasks = tasks.filter(t => (t.assignee || '') === filterAssignee);
-  if (filterStatus)   tasks = tasks.filter(t => t.status === filterStatus);
+  if (checkedStatuses.size > 0) tasks = tasks.filter(t => checkedStatuses.has(t.status));
   if (keyword) {
     tasks = tasks.filter(t =>
       (t.content || '').toLowerCase().includes(keyword) ||
