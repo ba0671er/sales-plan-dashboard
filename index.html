@@ -2093,7 +2093,7 @@
           </div>
           <div class="form-field">
             <label>クライアント</label>
-            <select id="t_client" onchange="onTaskFormSelectChange('t_client','client')"></select>
+            <select id="t_client" onchange="onTaskFormSelectChange('t_client','client'); updateStoreSuggestions()"></select>
           </div>
           <div class="form-field">
             <label>ストア <span style="font-weight:400; color:var(--text-sub);">（入力で予測）</span></label>
@@ -5479,8 +5479,23 @@ function populateTaskFormDropdowns() {
   populateSelect(document.getElementById('t_status'),   statuses);
   populateSelect(document.getElementById('t_client'),   clients, null, '（クライアント未選択）', '新しいクライアントを追加...');
   populateSelect(document.getElementById('t_assignee'), assignees, null, '（担当未選択）',       '新しい担当者を追加...');
-  // Store uses <input list="storeSuggestions"> for type-ahead autocomplete
-  populateDatalist(document.getElementById('storeSuggestions'), stores);
+  updateStoreSuggestions();
+}
+
+function updateStoreSuggestions() {
+  const selectedClient = (document.getElementById('t_client') || {}).value || '';
+  const allStores = getTaskStores().map(c => c.name);
+  if (!selectedClient) {
+    populateDatalist(document.getElementById('storeSuggestions'), allStores);
+    return;
+  }
+  const clientStores = new Set();
+  (store.tasks || []).concat(store.archivedTasks || []).forEach(t => {
+    if (t.client === selectedClient && t.store) clientStores.add(t.store);
+  });
+  const sorted = allStores.filter(s => clientStores.has(s));
+  const rest = allStores.filter(s => !clientStores.has(s));
+  populateDatalist(document.getElementById('storeSuggestions'), sorted.length > 0 ? sorted : allStores);
 }
 
 function populateTaskFilterDropdowns() {
