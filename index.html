@@ -2169,7 +2169,7 @@
           </div>
           <div class="form-field" style="min-width:140px;">
             <label>クライアントで絞込</label>
-            <select id="taskFilterClient" onchange="renderTaskTable()"></select>
+            <select id="taskFilterClient" onchange="updateFilterStoreSuggestions(); renderTaskTable()"></select>
           </div>
           <div class="form-field" style="min-width:140px;">
             <label>ストアで絞込</label>
@@ -5507,8 +5507,24 @@ function populateTaskFilterDropdowns() {
   populateSelect(document.getElementById('taskFilterCategory'), cats, null, 'すべて');
   populateStatusCheckboxes(statuses);
   populateSelect(document.getElementById('taskFilterClient'), clients, null, 'すべて');
-  populateSelect(document.getElementById('taskFilterStore'),    stores,  null, 'すべて');
+  updateFilterStoreSuggestions();
   populateSelect(document.getElementById('taskFilterAssignee'), assignees, null, 'すべて');
+}
+
+function updateFilterStoreSuggestions() {
+  const selectedClient = (document.getElementById('taskFilterClient') || {}).value || '';
+  const curStore = (document.getElementById('taskFilterStore') || {}).value || '';
+  const allStores = getTaskStores().map(c => c.name);
+  if (!selectedClient) {
+    populateSelect(document.getElementById('taskFilterStore'), allStores, curStore, 'すべて');
+    return;
+  }
+  const clientStores = new Set();
+  (store.tasks || []).concat(store.archivedTasks || []).forEach(t => {
+    if (t.client === selectedClient && t.store) clientStores.add(t.store);
+  });
+  const filtered = allStores.filter(s => clientStores.has(s));
+  populateSelect(document.getElementById('taskFilterStore'), filtered.length > 0 ? filtered : allStores, curStore, 'すべて');
 }
 
 function populateStatusCheckboxes(statuses) {
