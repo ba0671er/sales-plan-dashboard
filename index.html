@@ -1630,11 +1630,13 @@
   .gantt-table th, .gantt-table td { border: 1px solid var(--border); padding: 0; text-align: center; font-size: 12px; }
   .gantt-table th { background: var(--bg); padding: 4px 2px; position: sticky; top: 0; z-index: 2; }
   .gantt-label-cell { position: sticky; left: 0; background: var(--card-bg); z-index: 3; white-space: nowrap; padding: 4px 8px !important; text-align: left !important; font-size: 12px; }
-  .gantt-table thead th:first-child, .gantt-table thead th:nth-child(2), .gantt-table thead th:nth-child(3), .gantt-table thead th:nth-child(4), .gantt-table thead th:nth-child(5) { position: sticky; z-index: 4; }
+  .gantt-table thead th:first-child, .gantt-table thead th:nth-child(2), .gantt-table thead th:nth-child(3), .gantt-table thead th:nth-child(4), .gantt-table thead th:nth-child(5), .gantt-table thead th:nth-child(6) { position: sticky; z-index: 4; }
   .gantt-table thead th:first-child { left: 0; }
   .gantt-table thead th:nth-child(2) { left: 120px; }
   .gantt-table thead th:nth-child(3) { left: 200px; }
   .gantt-table thead th:nth-child(4) { left: 300px; }
+  .gantt-table thead th:nth-child(5) { left: 420px; }
+  .gantt-table thead th:nth-child(6) { left: 480px; }
   .gantt-table thead th:nth-child(5) { left: 420px; }
   .gantt-due-cell { font-size: 11px; color: var(--text-sub); white-space: nowrap; }
   .gantt-client-name { font-weight: 700; font-size: 13px; }
@@ -7635,6 +7637,7 @@ function renderGantt() {
   html += '<th style="min-width:100px;left:200px;background:var(--bg);">ストア</th>';
   html += '<th style="min-width:120px;left:300px;background:var(--bg);">タスク</th>';
   html += '<th style="min-width:60px;left:420px;background:var(--bg);">締切</th>';
+  html += '<th style="min-width:70px;left:480px;background:var(--bg);">ステータス</th>';
   for (let d = 1; d <= daysInMonth; d++) {
     const dt = new Date(year, month, d);
     const dow = dt.getDay();
@@ -7661,6 +7664,7 @@ function renderGantt() {
       html += '<td class="gantt-label-cell gantt-store-name" style="left:200px;">—</td>';
       html += '<td class="gantt-label-cell gantt-task-name" style="left:300px;">—</td>';
       html += '<td class="gantt-label-cell gantt-due-cell" style="left:420px;"></td>';
+      html += '<td class="gantt-label-cell" style="left:480px;"></td>';
       for (let d = 1; d <= daysInMonth; d++) {
         const dt = new Date(year, month, d);
         const dow = dt.getDay();
@@ -7682,6 +7686,7 @@ function renderGantt() {
         html += '<td class="gantt-label-cell gantt-store-name" style="left:200px;">' + escapeHtml(storeName) + '</td>';
         html += '<td class="gantt-label-cell gantt-task-name" style="left:300px;">—</td>';
         html += '<td class="gantt-label-cell gantt-due-cell" style="left:420px;"></td>';
+        html += '<td class="gantt-label-cell" style="left:480px;"></td>';
         for (let d = 1; d <= daysInMonth; d++) {
           const dt = new Date(year, month, d);
           const dow = dt.getDay();
@@ -7710,6 +7715,8 @@ function renderGantt() {
         html += '<td class="gantt-label-cell gantt-store-name" style="left:200px;">' + (firstStore ? escapeHtml(storeName) : '') + '</td>';
         html += '<td class="gantt-label-cell gantt-task-name" style="left:300px;">' + escapeHtml(task.content || '') + '</td>';
         html += '<td class="gantt-label-cell gantt-due-cell" style="left:420px;">' + dueDisplay + '</td>';
+        const stColor = getStatusColor(task.status);
+        html += '<td class="gantt-label-cell" style="left:480px;"><span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:' + stColor + ';color:' + textColorForBg(stColor) + ';white-space:nowrap;">' + escapeHtml(task.status || '') + '</span></td>';
 
         for (let d = 1; d <= daysInMonth; d++) {
           const dt = new Date(year, month, d);
