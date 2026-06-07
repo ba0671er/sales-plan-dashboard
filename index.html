@@ -5605,6 +5605,10 @@ function onTaskFormSelectChange(selectId, kind) {
 // ========== Task Helpers ==========
 function todayStr() {
   const d = new Date();
+  return localDateStr(d);
+}
+
+function localDateStr(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
@@ -7660,9 +7664,9 @@ function renderGantt() {
   const month = ganttMonth.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = new Date(); today.setHours(0,0,0,0);
-  const todayStr = today.toISOString().slice(0, 10);
+  const todayS = localDateStr(today);
   const monthStartStr = year + '-' + String(month + 1).padStart(2, '0') + '-01';
-  const monthEndStr = new Date(year, month, daysInMonth).toISOString().slice(0, 10);
+  const monthEndStr = localDateStr(new Date(year, month, daysInMonth));
 
   document.getElementById('ganttMonthLabel').textContent = year + '年' + (month + 1) + '月';
 
@@ -7702,7 +7706,7 @@ function renderGantt() {
     if (ganttCheckedStatuses.size > 0 && !ganttCheckedStatuses.has(t.status)) return false;
     if (ganttDue5) {
       const limit = new Date(); limit.setDate(limit.getDate() + 5);
-      const limitStr = limit.toISOString().slice(0, 10);
+      const limitStr = localDateStr(limit);
       if (t.dueDate && t.dueDate > limitStr) return false;
     }
 
@@ -7778,7 +7782,7 @@ function renderGantt() {
     const dt = new Date(year, month, d);
     const dow = dt.getDay();
     const isWeekend = dow === 0 || dow === 6;
-    const isToday = dt.toISOString().slice(0, 10) === todayStr;
+    const isToday = localDateStr(dt) === todayS;
     const cls = ['gantt-day-cell', isWeekend ? 'weekend' : '', isToday ? 'today' : ''].filter(Boolean).join(' ');
     html += '<th class="' + cls + '">' + d + '<br><span class="gantt-header-dow">' + dayLabels[dow] + '</span></th>';
   }
@@ -7793,7 +7797,7 @@ function renderGantt() {
     const stores = grouped[client];
     const storesSorted = Object.keys(stores).sort();
     const clientTasks = tasks.filter(t => t.client === client);
-    const hasNextTask = clientTasks.some(t => !isCompletedStatus(t.status) && t.dueDate && t.dueDate >= todayStr);
+    const hasNextTask = clientTasks.some(t => !isCompletedStatus(t.status) && t.dueDate && t.dueDate >= todayS);
     const alertIcon = hasNextTask ? '' : ' <span class="gantt-alert" title="Nextタスクがありません">⚠</span>';
 
     if (storesSorted.length === 0) {
@@ -7808,7 +7812,7 @@ function renderGantt() {
       for (let d = 1; d <= daysInMonth; d++) {
         const dt = new Date(year, month, d);
         const dow = dt.getDay();
-        const cls = ['gantt-day-cell', dow === 0 || dow === 6 ? 'weekend' : '', dt.toISOString().slice(0,10) === todayStr ? 'today' : ''].filter(Boolean).join(' ');
+        const cls = ['gantt-day-cell', dow === 0 || dow === 6 ? 'weekend' : '', localDateStr(dt) === todayS ? 'today' : ''].filter(Boolean).join(' ');
         html += '<td class="' + cls + '"></td>';
       }
       html += '</tr>';
@@ -7832,7 +7836,7 @@ function renderGantt() {
         for (let d = 1; d <= daysInMonth; d++) {
           const dt = new Date(year, month, d);
           const dow = dt.getDay();
-          const cls = ['gantt-day-cell', dow === 0 || dow === 6 ? 'weekend' : '', dt.toISOString().slice(0,10) === todayStr ? 'today' : ''].filter(Boolean).join(' ');
+          const cls = ['gantt-day-cell', dow === 0 || dow === 6 ? 'weekend' : '', localDateStr(dt) === todayS ? 'today' : ''].filter(Boolean).join(' ');
           html += '<td class="' + cls + '"></td>';
         }
         html += '</tr>';
@@ -7869,9 +7873,9 @@ function renderGantt() {
 
         for (let d = 1; d <= daysInMonth; d++) {
           const dt = new Date(year, month, d);
-          const dateStr = dt.toISOString().slice(0, 10);
+          const dateStr = localDateStr(dt);
           const dow = dt.getDay();
-          const cls = ['gantt-day-cell', dow === 0 || dow === 6 ? 'weekend' : '', dateStr === todayStr ? 'today' : ''].filter(Boolean).join(' ');
+          const cls = ['gantt-day-cell', dow === 0 || dow === 6 ? 'weekend' : '', dateStr === todayS ? 'today' : ''].filter(Boolean).join(' ');
 
           let barHtml = '';
           const start = taskStart || taskEnd;
@@ -7992,7 +7996,7 @@ function archiveGanttMonth() {
   const year = ganttMonth.getFullYear();
   const month = ganttMonth.getMonth();
   const key = year + '-' + String(month + 1).padStart(2, '0');
-  const monthEnd = new Date(year, month + 1, 0).toISOString().slice(0, 10);
+  const monthEnd = localDateStr(new Date(year, month + 1, 0));
   const monthStart = year + '-' + String(month + 1).padStart(2, '0') + '-01';
 
   const incomplete = (store.tasks || []).filter(t => {
@@ -8030,7 +8034,7 @@ function renderGanttAlerts() {
 
 // ========== Deal Archive ==========
 function archiveExpiredDeals() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayStr();
   const data = currentData();
   if (!Array.isArray(data.archivedDeals)) data.archivedDeals = [];
   const keep = [];
