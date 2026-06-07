@@ -2331,10 +2331,10 @@
         <button class="btn-secondary" onclick="prevGanttMonth()">◀</button>
         <span id="ganttMonthLabel" style="font-weight:700;font-size:16px;"></span>
         <button class="btn-secondary" onclick="nextGanttMonth()">▶</button>
-        <label style="font-size:13px;cursor:pointer;margin-left:12px;"><input type="checkbox" id="ganttShowCompleted" onchange="renderGantt()" /> 完了タスクを表示</label>
         <select id="ganttFilterCategory" onchange="renderGantt()" style="font-size:13px;padding:4px 8px;"><option value="">全カテゴリ</option></select>
         <select id="ganttFilterClient" onchange="renderGantt()" style="font-size:13px;padding:4px 8px;"><option value="">全クライアント</option></select>
         <select id="ganttFilterStore" onchange="renderGantt()" style="font-size:13px;padding:4px 8px;"><option value="">全ストア</option></select>
+        <div id="ganttStatusChecks" style="display:flex;flex-wrap:wrap;gap:4px 8px;font-size:12px;align-items:center;"></div>
         <button class="btn-primary" onclick="archiveGanttMonth()" style="margin-left:auto;">📦 月次アーカイブ</button>
       </div>
       <div class="gantt-wrapper" style="overflow-x:auto;">
@@ -7623,14 +7623,12 @@ function renderGantt() {
 
   document.getElementById('ganttMonthLabel').textContent = year + '年' + (month + 1) + '月';
 
-  const showCompleted = (document.getElementById('ganttShowCompleted') || {}).checked || false;
   const allDeals = (store.data[currentFY] && store.data[currentFY].deals || []);
   const archivedDeals = (store.data[currentFY] && store.data[currentFY].archivedDeals || []);
   const jissekiClients = new Set(
     allDeals.concat(archivedDeals).filter(d => d.status === '実績').map(d => d.client).filter(Boolean)
   );
 
-  // Read current filter values before rebuilding dropdowns
   const filterCategoryEl = document.getElementById('ganttFilterCategory');
   const filterClientEl = document.getElementById('ganttFilterClient');
   const filterStoreEl = document.getElementById('ganttFilterStore');
@@ -7638,8 +7636,26 @@ function renderGantt() {
   const filterClient = filterClientEl ? filterClientEl.value : '';
   const filterStore = filterStoreEl ? filterStoreEl.value : '';
 
+  // Populate status checkboxes
+  const ganttStatusContainer = document.getElementById('ganttStatusChecks');
+  const statuses = getTaskStatuses();
+  if (ganttStatusContainer && ganttStatusContainer.children.length === 0) {
+    ganttStatusContainer.innerHTML = '';
+    statuses.forEach(s => {
+      const checked = !isCompletedStatus(s.name);
+      const label = document.createElement('label');
+      label.style.cssText = 'display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;';
+      label.innerHTML = '<input type="checkbox" value="' + escapeAttr(s.name) + '" ' + (checked ? 'checked' : '') + ' onchange="renderGantt()" style="margin:0;" />' + escapeHtml(s.name);
+      ganttStatusContainer.appendChild(label);
+    });
+  }
+  const ganttCheckedStatuses = new Set();
+  if (ganttStatusContainer) {
+    ganttStatusContainer.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => ganttCheckedStatuses.add(cb.value));
+  }
+
   const allTasks = (store.tasks || []).filter(t => {
-    if (!showCompleted && isCompletedStatus(t.status)) return false;
+    if (ganttCheckedStatuses.size > 0 && !ganttCheckedStatuses.has(t.status)) return false;
     return true;
   });
   const taskClients = new Set(allTasks.map(t => t.client).filter(Boolean));
@@ -7759,26 +7775,27 @@ function renderGantt() {
 
       let firstStore = true;
       storeTasks.forEach((task, ti) => {
-        const taskStart = task.startDate || '';
         const taskEnd = task.dueDate || '';
+        const taskStart = task.startDate || taskEnd;
         const isComp = isCompletedStatus(task.status);
         const color = isComp ? '#86efac' : barColors[ti % barColors.length];
         const catColor = getCategoryColor(task.category);
         const catDisplay = task.category ? '<span style="background:' + catColor + ';color:' + textColorForBg(catColor) + ';border-radius:8px;padding:1px 6px;font-size:10px;font-weight:600;">' + escapeHtml(task.category) + '</span>' : '';
         const eid = escapeAttr(task.id);
+        const startDisp = taskStart ? (new Date(taskStart).getMonth()+1) + '/' + new Date(taskStart).getDate() : '';
+        const endDisp = taskEnd ? (new Date(taskEnd).getMonth()+1) + '/' + new Date(taskEnd).getDate() : '';
 
-        // Build status select options for inline editing
-        const statuses = getTaskStatuses();
+        const ganttStatuses = getTaskStatuses();
         const stColor = getStatusColor(task.status);
-        const statusOpts = statuses.map(s => '<option value="' + escapeAttr(s.name) + '"' + (s.name === task.status ? ' selected' : '') + '>' + escapeHtml(s.name) + '</option>').join('');
+        const statusOpts = ganttStatuses.map(s => '<option value="' + escapeAttr(s.name) + '"' + (s.name === task.status ? ' selected' : '') + '>' + escapeHtml(s.name) + '</option>').join('');
 
         html += '<tr>';
         html += '<td class="gantt-label-cell gantt-client-name" style="left:0;">' + (firstClient ? escapeHtml(client) + alertIcon + ' <button type="button" class="gantt-add-btn" onclick="ganttAddTask(\'' + escapeAttr(client) + '\')" title="タスク追加">＋</button>' : '') + '</td>';
         html += '<td class="gantt-label-cell gantt-category-name" style="left:120px;">' + catDisplay + '</td>';
         html += '<td class="gantt-label-cell gantt-store-name" style="left:200px;">' + (firstStore ? escapeHtml(storeName) : '') + '</td>';
-        html += '<td class="gantt-label-cell gantt-task-name" style="left:300px;">' + escapeHtml(task.content || '') + '</td>';
-        html += '<td class="gantt-label-cell gantt-due-cell" style="left:420px;"><input type="date" class="gantt-inline-date" value="' + escapeAttr(taskStart) + '" onchange="updateGanttTaskField(\'' + eid + '\',\'startDate\',this.value)" /></td>';
-        html += '<td class="gantt-label-cell gantt-due-cell" style="left:480px;"><input type="date" class="gantt-inline-date" value="' + escapeAttr(taskEnd) + '" onchange="updateGanttTaskField(\'' + eid + '\',\'dueDate\',this.value)" /></td>';
+        html += '<td class="gantt-label-cell gantt-task-name" style="left:300px;"><input class="inline-edit" type="text" value="' + escapeAttr(task.content || '') + '" style="font-size:11px;width:100%;min-width:100px;" onchange="updateGanttTaskField(\'' + eid + '\',\'content\',this.value)" /></td>';
+        html += '<td class="gantt-label-cell gantt-due-cell" style="left:420px;"><input type="date" class="gantt-inline-date" value="' + escapeAttr(task.startDate || '') + '" onchange="updateGanttTaskField(\'' + eid + '\',\'startDate\',this.value)" title="' + startDisp + '" /></td>';
+        html += '<td class="gantt-label-cell gantt-due-cell" style="left:480px;"><input type="date" class="gantt-inline-date" value="' + escapeAttr(taskEnd) + '" onchange="updateGanttTaskField(\'' + eid + '\',\'dueDate\',this.value)" title="' + endDisp + '" /></td>';
         html += '<td class="gantt-label-cell" style="left:540px;"><select class="gantt-inline-status" style="background:' + stColor + ';color:' + textColorForBg(stColor) + ';border-radius:8px;font-size:10px;font-weight:600;border:none;padding:1px 4px;" onchange="updateGanttTaskField(\'' + eid + '\',\'status\',this.value)">' + statusOpts + '</select></td>';
 
 
