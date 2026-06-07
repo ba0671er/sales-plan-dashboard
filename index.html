@@ -1655,6 +1655,10 @@
   .gantt-archive-banner { background: var(--danger); color: #fff; padding: 10px 16px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; }
   .gantt-archive-banner ul { margin: 4px 0 0 16px; padding: 0; }
   .gantt-header-dow { font-size: 10px; color: var(--text-sub); }
+  .gantt-inline-date { font-size: 10px; border: 1px solid var(--border); border-radius: 4px; padding: 1px 2px; width: 100%; max-width: 56px; background: var(--card-bg); }
+  .gantt-inline-status { cursor: pointer; appearance: none; -webkit-appearance: none; }
+  .gantt-add-btn { font-size: 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--card-bg); cursor: pointer; padding: 0 4px; line-height: 1.4; margin-left: 4px; color: var(--primary); font-weight: 600; }
+  .gantt-add-btn:hover { background: var(--primary); color: #fff; }
 </style>
 </head>
 <body>
@@ -2103,6 +2107,10 @@
             <datalist id="storeSuggestions"></datalist>
           </div>
           <div class="form-field">
+            <label>開始日</label>
+            <input type="date" id="t_startDate" />
+          </div>
+          <div class="form-field">
             <label>期日</label>
             <input type="date" id="t_dueDate" />
           </div>
@@ -2134,6 +2142,7 @@
                 <option value="daily">毎日</option>
                 <option value="weekly">毎週</option>
                 <option value="monthly">毎月</option>
+                <option value="monthlyNth">毎月第N曜日</option>
               </select>
               <select id="t_recurring_weekday" style="display:none;">
                 <option value="0">日曜日</option>
@@ -2145,6 +2154,21 @@
                 <option value="6">土曜日</option>
               </select>
               <select id="t_recurring_monthday" style="display:none;"></select>
+              <select id="t_recurring_nth" style="display:none;">
+                <option value="1">第1</option>
+                <option value="2">第2</option>
+                <option value="3">第3</option>
+                <option value="4">第4</option>
+              </select>
+              <select id="t_recurring_nthDay" style="display:none;">
+                <option value="1">月曜日</option>
+                <option value="2">火曜日</option>
+                <option value="3">水曜日</option>
+                <option value="4">木曜日</option>
+                <option value="5">金曜日</option>
+                <option value="6">土曜日</option>
+                <option value="0">日曜日</option>
+              </select>
               <span style="font-size:11px; color:var(--text-sub);">※ 指定日の24時にステータスがリセットされます（アーカイブされません）</span>
             </div>
           </div>
@@ -2245,9 +2269,9 @@
                 <th class="sortable" onclick="sortTasksBy('client')">クライアント<span class="sort-indicator" id="sortInd_client"></span></th>
                 <th class="sortable" onclick="sortTasksBy('store')">ストア<span class="sort-indicator" id="sortInd_store"></span></th>
                 <th class="sortable" onclick="sortTasksBy('content')">タスク内容<span class="sort-indicator" id="sortInd_content"></span></th>
-                <th class="sortable" onclick="sortTasksBy('dueDate')">期日<span class="sort-indicator" id="sortInd_dueDate"></span></th>
+                <th class="sortable" onclick="sortTasksBy('startDate')">開始日<span class="sort-indicator" id="sortInd_startDate"></span></th>
+                <th class="sortable" onclick="sortTasksBy('dueDate')">終了日<span class="sort-indicator" id="sortInd_dueDate"></span></th>
                 <th class="sortable" onclick="sortTasksBy('status')">ステータス<span class="sort-indicator" id="sortInd_status"></span></th>
-                <th class="sortable" onclick="sortTasksBy('time')">時間<span class="sort-indicator" id="sortInd_time"></span></th>
                 <th class="sortable" onclick="sortTasksBy('recurring')">繰り返し<span class="sort-indicator" id="sortInd_recurring"></span></th>
                 <th>URL</th>
                 <th>コメント</th>
@@ -2260,26 +2284,6 @@
       </div>
     </div>
 
-    <!-- Productivity Insights: client hourly rate + day-of-week heatmap -->
-    <div class="section">
-      <h2 class="section-title">生産性インサイト</h2>
-      <div class="insights-grid">
-        <div class="card">
-          <h3 class="chart-title">💰 クライアント別 時給・稼働</h3>
-          <div id="clientHourlyList"></div>
-        </div>
-        <div class="card">
-          <h3 class="chart-title">🔥 曜日×時間帯 生産性ヒートマップ</h3>
-          <div id="heatmapContainer"></div>
-          <div class="heatmap-legend">
-            <span>少</span>
-            <div class="heatmap-legend-gradient"></div>
-            <span>多</span>
-            <span style="margin-left:16px;">※ 完了タスクの時刻から集計</span>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Archive Section -->
     <div class="section">
@@ -5700,6 +5704,36 @@ function computeRecurringDueDate(recurring) {
     return `${y}-${m}-${d}`;
   }
 
+  if (recurring.type === 'monthlyNth') {
+    const nth = Number(recurring.nth) || 1;
+    const targetDay = Number(recurring.nthDay);
+    const todayS = todayStr();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    let count = 0;
+    for (let d = 1; d <= 31; d++) {
+      const dt = new Date(year, month, d);
+      if (dt.getMonth() !== month) break;
+      if (dt.getDay() === targetDay) {
+        count++;
+        if (count === nth) {
+          const result = dt.toISOString().slice(0, 10);
+          if (result >= todayS) return result;
+          const nextMonth = new Date(year, month + 1, 1);
+          let count2 = 0;
+          for (let d2 = 1; d2 <= 31; d2++) {
+            const dt2 = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), d2);
+            if (dt2.getMonth() !== nextMonth.getMonth()) break;
+            if (dt2.getDay() === targetDay) {
+              count2++;
+              if (count2 === nth) return dt2.toISOString().slice(0, 10);
+            }
+          }
+        }
+      }
+    }
+  }
+
   return null;
 }
 
@@ -5766,6 +5800,10 @@ function recurringLabel(recurring) {
   if (recurring.type === 'daily') return '毎日';
   if (recurring.type === 'weekly') return `毎週${WEEKDAY_NAMES[Number(recurring.day) || 0]}曜日`;
   if (recurring.type === 'monthly') return `毎月${Number(recurring.day) || 1}日`;
+  if (recurring.type === 'monthlyNth') {
+    const nthLabel = ['', '第1', '第2', '第3', '第4'][Number(recurring.nth) || 1];
+    return `毎月${nthLabel}${WEEKDAY_NAMES[Number(recurring.nthDay) || 0]}曜日`;
+  }
   return '';
 }
 
@@ -5773,9 +5811,9 @@ function buildRecurringInlineHTML(t, eid) {
   const r = t.recurring || {};
   const type = r.type || '';
   const day = r.day || '';
-  const typeOpts = [['','なし'],['daily','毎日'],['weekly','毎週'],['monthly','毎月']]
+  const typeOpts = [['','なし'],['daily','毎日'],['weekly','毎週'],['monthly','毎月'],['monthlyNth','第N曜日']]
     .map(([v,l]) => `<option value="${v}"${type === v ? ' selected' : ''}>${l}</option>`).join('');
-  let html = `<select class="inline-edit" style="font-size:11px;width:62px;" onchange="updateTaskRecurring('${eid}','type',this.value)">${typeOpts}</select>`;
+  let html = `<select class="inline-edit" style="font-size:11px;width:68px;" onchange="updateTaskRecurring('${eid}','type',this.value)">${typeOpts}</select>`;
   if (type === 'weekly') {
     const wOpts = WEEKDAY_NAMES.map((n,i) => `<option value="${i}"${String(day) === String(i) ? ' selected' : ''}>${n}</option>`).join('');
     html += `<select class="inline-edit" style="font-size:11px;width:44px;margin-left:2px;" onchange="updateTaskRecurring('${eid}','day',this.value)">${wOpts}</select>`;
@@ -5783,6 +5821,13 @@ function buildRecurringInlineHTML(t, eid) {
     let mOpts = '';
     for (let d = 1; d <= 31; d++) mOpts += `<option value="${d}"${String(day) === String(d) ? ' selected' : ''}>${d}日</option>`;
     html += `<select class="inline-edit" style="font-size:11px;width:52px;margin-left:2px;" onchange="updateTaskRecurring('${eid}','day',this.value)">${mOpts}</select>`;
+  } else if (type === 'monthlyNth') {
+    const nth = r.nth || 1;
+    const nthDay = r.nthDay != null ? r.nthDay : 1;
+    const nthOpts = [1,2,3,4].map(n => `<option value="${n}"${Number(nth) === n ? ' selected' : ''}>第${n}</option>`).join('');
+    html += `<select class="inline-edit" style="font-size:11px;width:48px;margin-left:2px;" onchange="updateTaskRecurring('${eid}','nth',this.value)">${nthOpts}</select>`;
+    const ndOpts = WEEKDAY_NAMES.map((n,i) => `<option value="${i}"${String(nthDay) === String(i) ? ' selected' : ''}>${n}</option>`).join('');
+    html += `<select class="inline-edit" style="font-size:11px;width:44px;margin-left:2px;" onchange="updateTaskRecurring('${eid}','nthDay',this.value)">${ndOpts}</select>`;
   }
   return html;
 }
@@ -5795,6 +5840,10 @@ function updateTaskRecurring(id, field, value) {
     t.recurring.type = value;
     if (value === 'weekly' && !t.recurring.day) t.recurring.day = '1';
     if (value === 'monthly' && !t.recurring.day) t.recurring.day = '1';
+    if (value === 'monthlyNth') {
+      if (!t.recurring.nth) t.recurring.nth = 1;
+      if (t.recurring.nthDay == null) t.recurring.nthDay = 1;
+    }
     if (!value) t.recurring = {};
   } else {
     t.recurring[field] = value;
@@ -6383,10 +6432,6 @@ function renderTaskTable() {
     const statusColor = getStatusColor(t.status);
     const catColor = getCategoryColor(t.category);
 
-    const timerRunning = !!t.activeStart;
-    const timerIcon = timerRunning ? '⏸' : '▶';
-    const timerClass = timerRunning ? 'timer-btn running' : 'timer-btn';
-    const timerTitle = timerRunning ? '計測を停止' : '計測を開始';
     tr.innerHTML = `
       <td>${alertIcon}</td>
       <td><select class="inline-edit" style="font-size:11px;${t.category ? ' background:' + catColor + '; color:' + textColorForBg(catColor) + '; border-radius:10px; padding:2px 6px; font-weight:600;' : ''}" onchange="updateTaskField('${eid}','category',this.value)">${catOptions}</select></td>
@@ -6394,15 +6439,12 @@ function renderTaskTable() {
       <td><select class="inline-edit" style="font-size:11px;" onchange="updateTaskField('${eid}','client',this.value)">${clientOptions}</select></td>
       <td><select class="inline-edit" style="font-size:11px;" onchange="updateTaskField('${eid}','store',this.value)">${storeOptions}</select></td>
       <td><input class="inline-edit" type="text" value="${escapeAttr(t.content || '')}" onchange="updateTaskField('${eid}','content',this.value)" /></td>
+      <td><input class="inline-edit dt" type="date" value="${escapeAttr(t.startDate || '')}" onchange="updateTaskField('${eid}','startDate',this.value)" /></td>
       <td><input class="inline-edit dt" type="date" value="${escapeAttr(t.dueDate || '')}" onchange="updateTaskField('${eid}','dueDate',this.value)" /></td>
       <td>
         <select class="status-inline-select" style="background:${statusColor}; color:${textColorForBg(statusColor)}; border-color:${statusColor}; border-radius:10px; font-weight:600;" onchange="updateTaskStatus('${eid}', this.value)">
           ${statusOptions}
         </select>
-      </td>
-      <td class="time-cell">
-        ${buildTimeDisplayHTML(t)}
-        <button type="button" class="${timerClass}" title="${timerTitle}" onclick="toggleTaskTimer('${eid}')">${timerIcon}</button>
       </td>
       <td style="white-space:nowrap;">${buildRecurringInlineHTML(t, eid)}</td>
       <td><input class="inline-edit" type="url" value="${escapeAttr(t.url || '')}" placeholder="URL" style="font-size:11px; min-width:80px;" onchange="updateTaskField('${eid}','url',this.value)" /></td>
@@ -6632,6 +6674,8 @@ function updateRecurringOptionsUI() {
       monthSel.appendChild(opt);
     }
   }
+  document.getElementById('t_recurring_nth').style.display = type === 'monthlyNth' ? '' : 'none';
+  document.getElementById('t_recurring_nthDay').style.display = type === 'monthlyNth' ? '' : 'none';
 }
 
 function saveTask() {
@@ -6648,6 +6692,8 @@ function saveTask() {
   } else if (type === 'monthly') {
     const monthSel = document.getElementById('t_recurring_monthday');
     recurring = { type: 'monthly', day: Number(monthSel.value || 1) };
+  } else if (type === 'monthlyNth') {
+    recurring = { type: 'monthlyNth', nth: Number(document.getElementById('t_recurring_nth').value || 1), nthDay: Number(document.getElementById('t_recurring_nthDay').value || 1) };
   }
 
   let dueDate = document.getElementById('t_dueDate').value;
@@ -6693,6 +6739,7 @@ function saveTask() {
     client:   getSelectValue('t_client'),
     store:    storeValRaw,
     content: content,
+    startDate: document.getElementById('t_startDate').value || '',
     dueDate: dueDate || '',
     status: status || '',
     url: document.getElementById('t_url').value.trim(),
@@ -6790,6 +6837,7 @@ function editTask(id) {
   setVal('t_client',   t.client   || '');
   setVal('t_store',    t.store    || '');
   setVal('t_content',  t.content  || '');
+  setVal('t_startDate', t.startDate || '');
   setVal('t_dueDate',  t.dueDate  || '');
   setVal('t_status',   t.status   || '');
   setVal('t_estimate', t.estimatedMinutes != null ? String(t.estimatedMinutes) : '');
@@ -6803,6 +6851,9 @@ function editTask(id) {
     setVal('t_recurring_weekday', t.recurring.day);
   } else if (type === 'monthly') {
     setVal('t_recurring_monthday', t.recurring.day);
+  } else if (type === 'monthlyNth') {
+    setVal('t_recurring_nth', t.recurring.nth || 1);
+    setVal('t_recurring_nthDay', t.recurring.nthDay != null ? t.recurring.nthDay : 1);
   }
 
   // Visual: edit mode banner / button text / cancel button
@@ -6880,6 +6931,7 @@ function resetTaskForm() {
   setVal('t_client',   '');
   setVal('t_store',    '');
   setVal('t_content',  '');
+  setVal('t_startDate', '');
   setVal('t_dueDate',  '');
   setVal('t_status',   statuses[0] || '');
   setVal('t_estimate', '');
@@ -7636,8 +7688,9 @@ function renderGantt() {
   html += '<th style="min-width:80px;left:120px;background:var(--bg);">カテゴリ</th>';
   html += '<th style="min-width:100px;left:200px;background:var(--bg);">ストア</th>';
   html += '<th style="min-width:120px;left:300px;background:var(--bg);">タスク</th>';
-  html += '<th style="min-width:60px;left:420px;background:var(--bg);">締切</th>';
-  html += '<th style="min-width:70px;left:480px;background:var(--bg);">ステータス</th>';
+  html += '<th style="min-width:60px;left:420px;background:var(--bg);">開始日</th>';
+  html += '<th style="min-width:60px;left:480px;background:var(--bg);">終了日</th>';
+  html += '<th style="min-width:70px;left:540px;background:var(--bg);">ステータス</th>';
   for (let d = 1; d <= daysInMonth; d++) {
     const dt = new Date(year, month, d);
     const dow = dt.getDay();
@@ -7659,12 +7712,13 @@ function renderGantt() {
     const alertIcon = hasNextTask ? '' : ' <span class="gantt-alert" title="Nextタスクがありません">⚠</span>';
 
     if (storesSorted.length === 0) {
-      html += '<tr><td class="gantt-label-cell gantt-client-name" style="left:0;">' + escapeHtml(client) + alertIcon + '</td>';
+      html += '<tr><td class="gantt-label-cell gantt-client-name" style="left:0;">' + escapeHtml(client) + alertIcon + ' <button type="button" class="gantt-add-btn" onclick="ganttAddTask(\'' + escapeAttr(client) + '\')" title="タスク追加">＋</button></td>';
       html += '<td class="gantt-label-cell gantt-category-name" style="left:120px;">—</td>';
       html += '<td class="gantt-label-cell gantt-store-name" style="left:200px;">—</td>';
       html += '<td class="gantt-label-cell gantt-task-name" style="left:300px;">—</td>';
       html += '<td class="gantt-label-cell gantt-due-cell" style="left:420px;"></td>';
-      html += '<td class="gantt-label-cell" style="left:480px;"></td>';
+      html += '<td class="gantt-label-cell gantt-due-cell" style="left:480px;"></td>';
+      html += '<td class="gantt-label-cell" style="left:540px;"></td>';
       for (let d = 1; d <= daysInMonth; d++) {
         const dt = new Date(year, month, d);
         const dow = dt.getDay();
@@ -7681,12 +7735,13 @@ function renderGantt() {
       const storeTasks = stores[storeName] || [];
       if (storeTasks.length === 0) {
         html += '<tr>';
-        html += '<td class="gantt-label-cell gantt-client-name" style="left:0;">' + (firstClient ? escapeHtml(client) + alertIcon : '') + '</td>';
+        html += '<td class="gantt-label-cell gantt-client-name" style="left:0;">' + (firstClient ? escapeHtml(client) + alertIcon + ' <button type="button" class="gantt-add-btn" onclick="ganttAddTask(\'' + escapeAttr(client) + '\')" title="タスク追加">＋</button>' : '') + '</td>';
         html += '<td class="gantt-label-cell gantt-category-name" style="left:120px;"></td>';
         html += '<td class="gantt-label-cell gantt-store-name" style="left:200px;">' + escapeHtml(storeName) + '</td>';
         html += '<td class="gantt-label-cell gantt-task-name" style="left:300px;">—</td>';
         html += '<td class="gantt-label-cell gantt-due-cell" style="left:420px;"></td>';
-        html += '<td class="gantt-label-cell" style="left:480px;"></td>';
+        html += '<td class="gantt-label-cell gantt-due-cell" style="left:480px;"></td>';
+        html += '<td class="gantt-label-cell" style="left:540px;"></td>';
         for (let d = 1; d <= daysInMonth; d++) {
           const dt = new Date(year, month, d);
           const dow = dt.getDay();
@@ -7701,22 +7756,27 @@ function renderGantt() {
 
       let firstStore = true;
       storeTasks.forEach((task, ti) => {
-        const taskStart = task.createdAt ? task.createdAt.slice(0, 10) : '';
+        const taskStart = task.startDate || '';
         const taskEnd = task.dueDate || '';
         const isComp = isCompletedStatus(task.status);
         const color = isComp ? '#86efac' : barColors[ti % barColors.length];
-        const dueDisplay = taskEnd ? (new Date(taskEnd).getMonth()+1) + '/' + new Date(taskEnd).getDate() : '';
         const catColor = getCategoryColor(task.category);
         const catDisplay = task.category ? '<span style="background:' + catColor + ';color:' + textColorForBg(catColor) + ';border-radius:8px;padding:1px 6px;font-size:10px;font-weight:600;">' + escapeHtml(task.category) + '</span>' : '';
+        const eid = escapeAttr(task.id);
+
+        // Build status select options for inline editing
+        const statuses = getTaskStatuses();
+        const stColor = getStatusColor(task.status);
+        const statusOpts = statuses.map(s => '<option value="' + escapeAttr(s.name) + '"' + (s.name === task.status ? ' selected' : '') + '>' + escapeHtml(s.name) + '</option>').join('');
 
         html += '<tr>';
-        html += '<td class="gantt-label-cell gantt-client-name" style="left:0;">' + (firstClient ? escapeHtml(client) + alertIcon : '') + '</td>';
+        html += '<td class="gantt-label-cell gantt-client-name" style="left:0;">' + (firstClient ? escapeHtml(client) + alertIcon + ' <button type="button" class="gantt-add-btn" onclick="ganttAddTask(\'' + escapeAttr(client) + '\')" title="タスク追加">＋</button>' : '') + '</td>';
         html += '<td class="gantt-label-cell gantt-category-name" style="left:120px;">' + catDisplay + '</td>';
         html += '<td class="gantt-label-cell gantt-store-name" style="left:200px;">' + (firstStore ? escapeHtml(storeName) : '') + '</td>';
         html += '<td class="gantt-label-cell gantt-task-name" style="left:300px;">' + escapeHtml(task.content || '') + '</td>';
-        html += '<td class="gantt-label-cell gantt-due-cell" style="left:420px;">' + dueDisplay + '</td>';
-        const stColor = getStatusColor(task.status);
-        html += '<td class="gantt-label-cell" style="left:480px;"><span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:' + stColor + ';color:' + textColorForBg(stColor) + ';white-space:nowrap;">' + escapeHtml(task.status || '') + '</span></td>';
+        html += '<td class="gantt-label-cell gantt-due-cell" style="left:420px;"><input type="date" class="gantt-inline-date" value="' + escapeAttr(taskStart) + '" onchange="updateGanttTaskField(\'' + eid + '\',\'startDate\',this.value)" /></td>';
+        html += '<td class="gantt-label-cell gantt-due-cell" style="left:480px;"><input type="date" class="gantt-inline-date" value="' + escapeAttr(taskEnd) + '" onchange="updateGanttTaskField(\'' + eid + '\',\'dueDate\',this.value)" /></td>';
+        html += '<td class="gantt-label-cell" style="left:540px;"><select class="gantt-inline-status" style="background:' + stColor + ';color:' + textColorForBg(stColor) + ';border-radius:8px;font-size:10px;font-weight:600;border:none;padding:1px 4px;" onchange="updateGanttTaskField(\'' + eid + '\',\'status\',this.value)">' + statusOpts + '</select></td>';
 
         for (let d = 1; d <= daysInMonth; d++) {
           const dt = new Date(year, month, d);
@@ -7753,6 +7813,41 @@ function renderGantt() {
   }
   document.getElementById('ganttChart').innerHTML = html;
   renderGanttAlerts();
+}
+
+function updateGanttTaskField(id, field, value) {
+  ensureTaskStore();
+  const t = (store.tasks || []).find(x => x.id === id);
+  if (!t) return;
+  t[field] = value;
+  if (field === 'status') {
+    if (isCompletedStatus(value)) {
+      t.completedAt = t.completedAt || new Date().toISOString();
+    } else {
+      t.completedAt = null;
+    }
+  }
+  save();
+  renderGantt();
+}
+
+function ganttAddTask(client) {
+  // Switch to tasks tab and open the form with client pre-filled
+  switchTab('tasks');
+  resetTaskForm();
+  const el = document.getElementById('t_client');
+  if (el) {
+    el.value = client;
+    if (el.dataset) el.dataset.lastValue = el.value;
+  }
+  updateStoreSuggestions();
+  try {
+    const contentEl = document.getElementById('t_content');
+    if (contentEl) {
+      window.scrollTo({ top: contentEl.getBoundingClientRect().top + window.scrollY - 100, behavior: 'smooth' });
+      contentEl.focus();
+    }
+  } catch(e) {}
 }
 
 function archiveGanttMonth() {
