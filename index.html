@@ -6416,16 +6416,16 @@ function renderTaskTable() {
 
     const catOptions = '<option value="">—</option>' + cats.map(c =>
       `<option value="${escapeAttr(c.name)}"${c.name === (t.category || '') ? ' selected' : ''}>${escapeHtml(c.name)}</option>`
-    ).join('');
+    ).join('') + '<option value="__ADD_NEW__">＋ 追加...</option>';
     const assigneeOptions = '<option value="">—</option>' + assignees.map(a =>
       `<option value="${escapeAttr(a.name)}"${a.name === (t.assignee || '') ? ' selected' : ''}>${escapeHtml(a.name)}</option>`
-    ).join('');
+    ).join('') + '<option value="__ADD_NEW__">＋ 追加...</option>';
     const clientOptions = '<option value="">—</option>' + clients.map(c =>
       `<option value="${escapeAttr(c.name)}"${c.name === (t.client || '') ? ' selected' : ''}>${escapeHtml(c.name)}</option>`
-    ).join('');
+    ).join('') + '<option value="__ADD_NEW__">＋ 追加...</option>';
     const storeOptions = '<option value="">—</option>' + stores.map(s =>
       `<option value="${escapeAttr(s.name)}"${s.name === (t.store || '') ? ' selected' : ''}>${escapeHtml(s.name)}</option>`
-    ).join('');
+    ).join('') + '<option value="__ADD_NEW__">＋ 追加...</option>';
     const statusOptions = statuses.map(s =>
       `<option value="${escapeAttr(s.name)}"${s.name === t.status ? ' selected' : ''}>${escapeHtml(s.name)}</option>`
     ).join('');
@@ -6434,10 +6434,10 @@ function renderTaskTable() {
 
     tr.innerHTML = `
       <td>${alertIcon}</td>
-      <td><select class="inline-edit" style="font-size:11px;${t.category ? ' background:' + catColor + '; color:' + textColorForBg(catColor) + '; border-radius:10px; padding:2px 6px; font-weight:600;' : ''}" onchange="updateTaskField('${eid}','category',this.value)">${catOptions}</select></td>
-      <td><select class="inline-edit" style="font-size:11px;" onchange="updateTaskField('${eid}','assignee',this.value)">${assigneeOptions}</select></td>
-      <td><select class="inline-edit" style="font-size:11px;" onchange="updateTaskField('${eid}','client',this.value)">${clientOptions}</select></td>
-      <td><select class="inline-edit" style="font-size:11px;" onchange="updateTaskField('${eid}','store',this.value)">${storeOptions}</select></td>
+      <td><select class="inline-edit" style="font-size:11px;${t.category ? ' background:' + catColor + '; color:' + textColorForBg(catColor) + '; border-radius:10px; padding:2px 6px; font-weight:600;' : ''}" onchange="inlineSelectAddNew(this,'category','${eid}')">${catOptions}</select></td>
+      <td><select class="inline-edit" style="font-size:11px;" onchange="inlineSelectAddNew(this,'assignee','${eid}')">${assigneeOptions}</select></td>
+      <td><select class="inline-edit" style="font-size:11px;" onchange="inlineSelectAddNew(this,'client','${eid}')">${clientOptions}</select></td>
+      <td><select class="inline-edit" style="font-size:11px;" onchange="inlineSelectAddNew(this,'store','${eid}')">${storeOptions}</select></td>
       <td><input class="inline-edit" type="text" value="${escapeAttr(t.content || '')}" onchange="updateTaskField('${eid}','content',this.value)" /></td>
       <td><input class="inline-edit dt" type="date" value="${escapeAttr(t.startDate || '')}" onchange="updateTaskField('${eid}','startDate',this.value)" /></td>
       <td><input class="inline-edit dt" type="date" value="${escapeAttr(t.dueDate || '')}" onchange="updateTaskField('${eid}','dueDate',this.value)" /></td>
@@ -6903,6 +6903,34 @@ function updateTaskStatus(id, newStatus) {
   }
   save();
   renderTaskView();
+}
+
+function inlineSelectAddNew(sel, kind, taskId) {
+  if (sel.value !== '__ADD_NEW__') {
+    updateTaskField(taskId, kind, sel.value);
+    return;
+  }
+  const labelMap = { category: 'カテゴリ', client: 'クライアント', store: 'ストア', assignee: '担当者' };
+  const paletteMap = { category: CAT_PALETTE, client: CLIENT_PALETTE, store: STORE_PALETTE, assignee: ASSIGNEE_PALETTE };
+  const listMap = {
+    category: () => store.taskSettings.categories,
+    client:   () => store.taskSettings.clients,
+    store:    () => store.taskSettings.stores,
+    assignee: () => store.taskSettings.assignees
+  };
+  const name = (prompt('新しい' + (labelMap[kind] || '項目') + '名を入力') || '').trim();
+  if (!name) {
+    const t = (store.tasks || []).find(x => x.id === taskId);
+    sel.value = t ? (t[kind] || '') : '';
+    return;
+  }
+  ensureTaskStore();
+  const list = listMap[kind]();
+  if (!list.find(x => x.name === name)) {
+    const palette = paletteMap[kind];
+    list.push({ name, color: palette[list.length % palette.length] });
+  }
+  updateTaskField(taskId, kind, name);
 }
 
 function updateTaskField(id, field, value) {
