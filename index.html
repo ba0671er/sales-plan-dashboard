@@ -2336,6 +2336,7 @@
         <select id="ganttFilterStore" onchange="renderGantt()" style="font-size:13px;padding:4px 8px;"><option value="">全ストア</option></select>
         <div id="ganttStatusChecks" style="display:flex;flex-wrap:wrap;gap:4px 8px;font-size:12px;align-items:center;"></div>
         <label style="font-size:12px;cursor:pointer;white-space:nowrap;"><input type="checkbox" id="ganttDue5" checked onchange="renderGantt()" style="margin:0;" /> 5日以内</label>
+
         <button class="btn-primary" onclick="archiveGanttMonth()" style="margin-left:auto;">📦 月次アーカイブ</button>
       </div>
       <div class="gantt-wrapper" style="overflow-x:auto;">
@@ -7704,6 +7705,7 @@ function renderGantt() {
       const limitStr = limit.toISOString().slice(0, 10);
       if (t.dueDate && t.dueDate > limitStr) return false;
     }
+
     return true;
   });
   const taskClients = new Set(allTasks.map(t => t.client).filter(Boolean));
