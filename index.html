@@ -7608,6 +7608,19 @@ setInterval(() => {
 
 // ========== Gantt Chart ==========
 let ganttMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let ganttSortField = 'client';
+let ganttSortDir = 1;
+
+function sortGanttBy(field) {
+  if (ganttSortField === field) { ganttSortDir *= -1; }
+  else { ganttSortField = field; ganttSortDir = 1; }
+  renderGantt();
+}
+
+function ganttSortIndicator(field) {
+  if (ganttSortField !== field) return '';
+  return ' <span style="font-size:9px;color:var(--primary);">' + (ganttSortDir === 1 ? '▲' : '▼') + '</span>';
+}
 
 function prevGanttMonth() { ganttMonth = new Date(ganttMonth.getFullYear(), ganttMonth.getMonth() - 1, 1); renderGantt(); }
 function nextGanttMonth() { ganttMonth = new Date(ganttMonth.getFullYear(), ganttMonth.getMonth() + 1, 1); renderGantt(); }
@@ -7683,7 +7696,23 @@ function renderGantt() {
     return true;
   });
 
-  // Also filter the client set if client filter is active
+  // Sort tasks
+  tasks.sort((a, b) => {
+    let av, bv;
+    switch (ganttSortField) {
+      case 'client':   av = a.client || ''; bv = b.client || ''; break;
+      case 'category': av = a.category || ''; bv = b.category || ''; break;
+      case 'store':    av = a.store || ''; bv = b.store || ''; break;
+      case 'content':  av = a.content || ''; bv = b.content || ''; break;
+      case 'startDate': av = a.startDate || a.dueDate || ''; bv = b.startDate || b.dueDate || ''; break;
+      case 'dueDate':  av = a.dueDate || ''; bv = b.dueDate || ''; break;
+      case 'status':   av = a.status || ''; bv = b.status || ''; break;
+      default:         av = a.client || ''; bv = b.client || '';
+    }
+    const cmp = String(av).localeCompare(String(bv), 'ja');
+    return cmp * ganttSortDir;
+  });
+
   const visibleClients = filterClient ? new Set([filterClient]) : ganttClients;
 
   const grouped = {};
@@ -7700,13 +7729,13 @@ function renderGantt() {
   const dayLabels = ['日','月','火','水','木','金','土'];
 
   let html = '<table class="gantt-table"><thead><tr>';
-  html += '<th style="min-width:120px;left:0;background:var(--bg);">クライアント</th>';
-  html += '<th style="min-width:80px;left:120px;background:var(--bg);">カテゴリ</th>';
-  html += '<th style="min-width:100px;left:200px;background:var(--bg);">ストア</th>';
-  html += '<th style="min-width:120px;left:300px;background:var(--bg);">タスク</th>';
-  html += '<th style="min-width:60px;left:420px;background:var(--bg);">開始日</th>';
-  html += '<th style="min-width:60px;left:480px;background:var(--bg);">終了日</th>';
-  html += '<th style="min-width:70px;left:540px;background:var(--bg);">ステータス</th>';
+  html += '<th class="sortable" style="min-width:120px;left:0;background:var(--bg);" onclick="sortGanttBy(\'client\')">クライアント' + ganttSortIndicator('client') + '</th>';
+  html += '<th class="sortable" style="min-width:80px;left:120px;background:var(--bg);" onclick="sortGanttBy(\'category\')">カテゴリ' + ganttSortIndicator('category') + '</th>';
+  html += '<th class="sortable" style="min-width:100px;left:200px;background:var(--bg);" onclick="sortGanttBy(\'store\')">ストア' + ganttSortIndicator('store') + '</th>';
+  html += '<th class="sortable" style="min-width:120px;left:300px;background:var(--bg);" onclick="sortGanttBy(\'content\')">タスク' + ganttSortIndicator('content') + '</th>';
+  html += '<th class="sortable" style="min-width:60px;left:420px;background:var(--bg);" onclick="sortGanttBy(\'startDate\')">開始日' + ganttSortIndicator('startDate') + '</th>';
+  html += '<th class="sortable" style="min-width:60px;left:480px;background:var(--bg);" onclick="sortGanttBy(\'dueDate\')">終了日' + ganttSortIndicator('dueDate') + '</th>';
+  html += '<th class="sortable" style="min-width:70px;left:540px;background:var(--bg);" onclick="sortGanttBy(\'status\')">ステータス' + ganttSortIndicator('status') + '</th>';
 
   for (let d = 1; d <= daysInMonth; d++) {
     const dt = new Date(year, month, d);
@@ -7718,7 +7747,9 @@ function renderGantt() {
   }
   html += '</tr></thead><tbody>';
 
-  const clientsSorted = Object.keys(grouped).sort();
+  const clientsSorted = ganttSortField === 'client'
+    ? Object.keys(grouped).sort((a, b) => a.localeCompare(b, 'ja') * ganttSortDir)
+    : Object.keys(grouped).sort((a, b) => a.localeCompare(b, 'ja'));
   let rowCount = 0;
 
   clientsSorted.forEach((client, ci) => {
