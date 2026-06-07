@@ -7691,6 +7691,7 @@ function renderGantt() {
   html += '<th style="min-width:60px;left:420px;background:var(--bg);">開始日</th>';
   html += '<th style="min-width:60px;left:480px;background:var(--bg);">終了日</th>';
   html += '<th style="min-width:70px;left:540px;background:var(--bg);">ステータス</th>';
+
   for (let d = 1; d <= daysInMonth; d++) {
     const dt = new Date(year, month, d);
     const dow = dt.getDay();
@@ -7719,6 +7720,7 @@ function renderGantt() {
       html += '<td class="gantt-label-cell gantt-due-cell" style="left:420px;"></td>';
       html += '<td class="gantt-label-cell gantt-due-cell" style="left:480px;"></td>';
       html += '<td class="gantt-label-cell" style="left:540px;"></td>';
+
       for (let d = 1; d <= daysInMonth; d++) {
         const dt = new Date(year, month, d);
         const dow = dt.getDay();
@@ -7742,6 +7744,7 @@ function renderGantt() {
         html += '<td class="gantt-label-cell gantt-due-cell" style="left:420px;"></td>';
         html += '<td class="gantt-label-cell gantt-due-cell" style="left:480px;"></td>';
         html += '<td class="gantt-label-cell" style="left:540px;"></td>';
+
         for (let d = 1; d <= daysInMonth; d++) {
           const dt = new Date(year, month, d);
           const dow = dt.getDay();
@@ -7777,6 +7780,7 @@ function renderGantt() {
         html += '<td class="gantt-label-cell gantt-due-cell" style="left:420px;"><input type="date" class="gantt-inline-date" value="' + escapeAttr(taskStart) + '" onchange="updateGanttTaskField(\'' + eid + '\',\'startDate\',this.value)" /></td>';
         html += '<td class="gantt-label-cell gantt-due-cell" style="left:480px;"><input type="date" class="gantt-inline-date" value="' + escapeAttr(taskEnd) + '" onchange="updateGanttTaskField(\'' + eid + '\',\'dueDate\',this.value)" /></td>';
         html += '<td class="gantt-label-cell" style="left:540px;"><select class="gantt-inline-status" style="background:' + stColor + ';color:' + textColorForBg(stColor) + ';border-radius:8px;font-size:10px;font-weight:600;border:none;padding:1px 4px;" onchange="updateGanttTaskField(\'' + eid + '\',\'status\',this.value)">' + statusOpts + '</select></td>';
+
 
         for (let d = 1; d <= daysInMonth; d++) {
           const dt = new Date(year, month, d);
