@@ -7884,22 +7884,70 @@ function updateGanttTaskField(id, field, value) {
 }
 
 function ganttAddTask(client) {
-  // Switch to tasks tab and open the form with client pre-filled
-  switchTab('tasks');
-  resetTaskForm();
-  const el = document.getElementById('t_client');
-  if (el) {
-    el.value = client;
-    if (el.dataset) el.dataset.lastValue = el.value;
+  const btn = event && event.target;
+  const row = btn ? btn.closest('tr') : null;
+  const daysInMonth = new Date(ganttMonth.getFullYear(), ganttMonth.getMonth() + 1, 0).getDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayStr = today.toISOString().slice(0, 10);
+
+  const cats = getTaskCategories();
+  const catOpts = '<option value="">—</option>' + cats.map(c => '<option value="' + escapeAttr(c.name) + '">' + escapeHtml(c.name) + '</option>').join('');
+  const storesList = getTaskStores();
+  const clientStores = new Set();
+  (store.tasks || []).forEach(t => { if (t.client === client && t.store) clientStores.add(t.store); });
+  const filteredStores = storesList.filter(s => clientStores.has(s.name));
+  const storeOpts = '<option value="">—</option>' + (filteredStores.length > 0 ? filteredStores : storesList).map(s => '<option value="' + escapeAttr(s.name) + '">' + escapeHtml(s.name) + '</option>').join('');
+  const statuses = getTaskStatuses();
+  const statusOpts = statuses.map(s => '<option value="' + escapeAttr(s.name) + '"' + (s.name === '未着手' ? ' selected' : '') + '>' + escapeHtml(s.name) + '</option>').join('');
+
+  const newRow = document.createElement('tr');
+  newRow.style.background = '#fffbeb';
+  let cells = '';
+  cells += '<td class="gantt-label-cell" style="left:0;font-size:11px;">' + escapeHtml(client) + '</td>';
+  cells += '<td class="gantt-label-cell" style="left:120px;"><select class="inline-edit" style="font-size:10px;" id="ganttNewCat">' + catOpts + '</select></td>';
+  cells += '<td class="gantt-label-cell" style="left:200px;"><select class="inline-edit" style="font-size:10px;" id="ganttNewStore">' + storeOpts + '</select></td>';
+  cells += '<td class="gantt-label-cell" style="left:300px;"><input class="inline-edit" type="text" id="ganttNewContent" placeholder="タスク名" style="font-size:11px;min-width:100px;" /></td>';
+  cells += '<td class="gantt-label-cell" style="left:420px;"><input type="date" class="gantt-inline-date" id="ganttNewStart" /></td>';
+  cells += '<td class="gantt-label-cell" style="left:480px;"><input type="date" class="gantt-inline-date" id="ganttNewEnd" /></td>';
+  cells += '<td class="gantt-label-cell" style="left:540px;"><select class="inline-edit" style="font-size:10px;" id="ganttNewStatus">' + statusOpts + '</select></td>';
+  cells += '<td colspan="' + daysInMonth + '" style="text-align:left;padding:2px 6px;white-space:nowrap;">';
+  cells += '<button class="btn-primary" style="font-size:11px;padding:2px 10px;" onclick="ganttSaveNewTask(\'' + escapeAttr(client) + '\')">追加</button> ';
+  cells += '<button class="btn-secondary" style="font-size:11px;padding:2px 8px;" onclick="this.closest(\'tr\').remove()">取消</button>';
+  cells += '</td>';
+  newRow.innerHTML = cells;
+
+  if (row && row.parentNode) {
+    row.parentNode.insertBefore(newRow, row.nextSibling);
   }
-  updateStoreSuggestions();
-  try {
-    const contentEl = document.getElementById('t_content');
-    if (contentEl) {
-      window.scrollTo({ top: contentEl.getBoundingClientRect().top + window.scrollY - 100, behavior: 'smooth' });
-      contentEl.focus();
-    }
-  } catch(e) {}
+  setTimeout(() => { const el = document.getElementById('ganttNewContent'); if (el) el.focus(); }, 50);
+}
+
+function ganttSaveNewTask(client) {
+  const content = (document.getElementById('ganttNewContent') || {}).value || '';
+  if (!content.trim()) { alert('タスク名を入力してください'); return; }
+  ensureTaskStore();
+  const task = {
+    id: String(Date.now()) + Math.random().toString(36).slice(2, 8),
+    category: (document.getElementById('ganttNewCat') || {}).value || '',
+    assignee: '',
+    client: client,
+    store: (document.getElementById('ganttNewStore') || {}).value || '',
+    content: content.trim(),
+    startDate: (document.getElementById('ganttNewStart') || {}).value || '',
+    dueDate: (document.getElementById('ganttNewEnd') || {}).value || '',
+    status: (document.getElementById('ganttNewStatus') || {}).value || '未着手',
+    url: '',
+    comment: '',
+    recurring: {},
+    estimatedMinutes: 0,
+    timeEntries: [],
+    activeStart: null,
+    createdAt: new Date().toISOString(),
+    completedAt: null
+  };
+  store.tasks.push(task);
+  save();
+  renderGantt();
 }
 
 function archiveGanttMonth() {
