@@ -2184,6 +2184,7 @@
           <button type="button" class="btn-secondary" id="taskCancelBtn" style="display:none;" onclick="resetTaskForm()">キャンセル</button>
           <button type="button" class="btn-secondary" onclick="resetTaskForm()">クリア</button>
           <button type="button" class="btn-primary" id="taskSaveBtn" onclick="saveTask()">タスクを追加</button>
+          <button type="button" class="btn-secondary" onclick="openAiTaskModal()" style="margin-left:auto;">🤖 AIで追加</button>
         </div>
       </div>
     </div>
@@ -8148,7 +8149,233 @@ function renderArchivedDeals() {
     '<td style="padding:5px 6px;text-align:right;">' + toMan(d.amount) + '</td>' +
   '</tr>').join('');
 }
+
+// ========== AI Task Extraction ==========
+
+let _aiExtractedTasks = [];
+
+function openAiTaskModal() {
+  document.getElementById('aiTaskModal').style.display = 'flex';
+  resetAiTaskModal();
+}
+
+function closeAiTaskModal() {
+  document.getElementById('aiTaskModal').style.display = 'none';
+}
+
+function resetAiTaskModal() {
+  document.getElementById('aiTaskText').value = '';
+  document.getElementById('aiTaskFile').value = '';
+  document.getElementById('aiTaskInputArea').style.display = '';
+  document.getElementById('aiTaskStatus').style.display = 'none';
+  document.getElementById('aiTaskResults').style.display = 'none';
+  _aiExtractedTasks = [];
+}
+
+function getAiApiKey() {
+  let key = localStorage.getItem('openai_api_key');
+  if (!key) {
+    key = prompt('OpenAI APIキー（sk-...）を入力してください');
+    if (key) localStorage.setItem('openai_api_key', key.trim());
+  }
+  return key ? key.trim() : null;
+}
+
+function changeAiApiKey() {
+  const current = localStorage.getItem('openai_api_key') || '';
+  const key = prompt('OpenAI APIキー（sk-...）を入力してください', current);
+  if (key !== null) {
+    localStorage.setItem('openai_api_key', key.trim());
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise(function(resolve, reject) {
+    const reader = new FileReader();
+    reader.onload = function() { resolve(reader.result); };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function runAiTaskExtraction() {
+  const text = document.getElementById('aiTaskText').value.trim();
+  const fileInput = document.getElementById('aiTaskFile');
+  const file = fileInput.files && fileInput.files[0];
+
+  if (!text && !file) {
+    alert('テキストを入力するか、画像をアップロードしてください。');
+    return;
+  }
+
+  const apiKey = getAiApiKey();
+  if (!apiKey) return;
+
+  const clientNames = getTaskClients().map(function(c) { return c.name; }).join(', ');
+  const storeNames = getTaskStores().map(function(c) { return c.name; }).join(', ');
+  const categoryNames = getTaskCategories().map(function(c) { return c.name; }).join(', ');
+  const today = todayStr();
+
+  const systemPrompt = 'あなたはチャットメッセージからタスク情報を抽出するアシスタントです。\n以下の情報を抽出してJSON配列で返してください。\n\n各タスクオブジェクト:\n- client: クライアント名（不明なら空文字）\n- store: ストア名（不明なら空文字）\n- content: タスク内容（簡潔に）\n- dueDate: 期日（YYYY-MM-DD形式、不明なら空文字。「今週中」「金曜まで」等は今日の日付から計算）\n- category: カテゴリ（不明なら空文字）\n\n既存のクライアント: ' + clientNames + '\n既存のストア: ' + storeNames + '\n既存のカテゴリ: ' + categoryNames + '\n今日の日付: ' + today + '\n\nJSONの配列のみを返してください。マークダウンのコードブロックは使わないでください。';
+
+  var userContent;
+  if (file) {
+    var dataUrl = await fileToBase64(file);
+    userContent = [
+      { type: 'image_url', image_url: { url: dataUrl } }
+    ];
+    if (text) {
+      userContent.unshift({ type: 'text', text: text });
+    }
+  } else {
+    userContent = text;
+  }
+
+  document.getElementById('aiTaskInputArea').style.display = 'none';
+  var statusEl = document.getElementById('aiTaskStatus');
+  statusEl.style.display = 'block';
+  statusEl.textContent = '解析中...しばらくお待ちください。';
+
+  try {
+    var resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + apiKey
+      },
+      body: JSON.stringify({
+        model: 'gpt-4.1-nano',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent }
+        ],
+        temperature: 0.2
+      })
+    });
+
+    if (!resp.ok) {
+      var errBody = await resp.text();
+      throw new Error('API Error (' + resp.status + '): ' + errBody);
+    }
+
+    var data = await resp.json();
+    var raw = data.choices[0].message.content.trim();
+    var tasks = JSON.parse(raw);
+
+    if (!Array.isArray(tasks) || tasks.length === 0) {
+      statusEl.textContent = 'タスクを抽出できませんでした。テキストの内容をご確認ください。';
+      document.getElementById('aiTaskInputArea').style.display = '';
+      return;
+    }
+
+    _aiExtractedTasks = tasks;
+    statusEl.style.display = 'none';
+    showAiTaskResults(tasks);
+  } catch (e) {
+    statusEl.textContent = 'エラー: ' + e.message;
+    statusEl.style.color = 'var(--danger)';
+    setTimeout(function() {
+      document.getElementById('aiTaskInputArea').style.display = '';
+      statusEl.style.display = 'none';
+      statusEl.style.color = '';
+    }, 4000);
+  }
+}
+
+function showAiTaskResults(tasks) {
+  var container = document.getElementById('aiTaskList');
+  container.innerHTML = tasks.map(function(t, i) {
+    var parts = [];
+    if (t.client) parts.push(escapeHtml(t.client));
+    if (t.store) parts.push(escapeHtml(t.store));
+    var meta = parts.length ? '<span style="color:var(--text-sub); font-size:11px;">' + parts.join(' / ') + '</span> ' : '';
+    var due = t.dueDate ? ' <span style="color:var(--primary); font-size:11px;">期限: ' + escapeHtml(t.dueDate) + '</span>' : '';
+    var cat = t.category ? ' <span style="background:#e0e7ff; color:#3730a3; font-size:10px; padding:1px 6px; border-radius:3px;">' + escapeHtml(t.category) + '</span>' : '';
+    return '<label style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:6px; margin-bottom:6px; cursor:pointer; font-size:13px;">' +
+      '<input type="checkbox" checked data-ai-idx="' + i + '" style="margin-top:3px;">' +
+      '<div>' + meta + cat + '<br>' + escapeHtml(t.content || '') + due + '</div>' +
+    '</label>';
+  }).join('');
+  document.getElementById('aiTaskResults').style.display = '';
+}
+
+function addSelectedAiTasks() {
+  ensureTaskStore();
+  var checkboxes = document.querySelectorAll('#aiTaskList input[type=checkbox]');
+  var count = 0;
+  checkboxes.forEach(function(cb) {
+    if (!cb.checked) return;
+    var idx = parseInt(cb.getAttribute('data-ai-idx'), 10);
+    var t = _aiExtractedTasks[idx];
+    if (!t) return;
+    store.tasks.push({
+      id: String(Date.now()) + Math.random().toString(36).slice(2, 8),
+      category: t.category || '',
+      assignee: '',
+      client: t.client || '',
+      store: t.store || '',
+      content: t.content || '',
+      startDate: '',
+      dueDate: t.dueDate || '',
+      status: '未着手',
+      url: '',
+      comment: '',
+      recurring: {},
+      estimatedMinutes: 0,
+      timeEntries: [],
+      activeStart: null,
+      createdAt: new Date().toISOString(),
+      completedAt: null
+    });
+    count++;
+  });
+  if (count > 0) {
+    save();
+    renderTaskTable();
+    renderTaskKPIs();
+  }
+  closeAiTaskModal();
+  if (count > 0) {
+    alert(count + '件のタスクを追加しました。');
+  }
+}
 </script>
+
+<div class="modal-overlay" id="aiTaskModal" style="display:none;" onclick="if(event.target===this)closeAiTaskModal()">
+  <div class="modal-content" style="max-width:560px;">
+    <div class="modal-header">
+      <h3 style="margin:0; font-size:18px;">🤖 AIでタスク抽出</h3>
+      <div style="display:flex; align-items:center; gap:4px;">
+        <button type="button" class="modal-close" onclick="changeAiApiKey()" title="APIキーを変更">🔑</button>
+        <button type="button" class="modal-close" onclick="closeAiTaskModal()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div id="aiTaskInputArea">
+        <div class="form-field" style="margin-bottom:12px;">
+          <label>チャットテキストを貼り付け</label>
+          <textarea id="aiTaskText" rows="6" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:6px; font-family:inherit; font-size:13px; box-sizing:border-box;" placeholder="チャットの内容をここに貼り付けてください..."></textarea>
+        </div>
+        <div class="form-field" style="margin-bottom:16px;">
+          <label>またはスクリーンショットをアップロード</label>
+          <input type="file" id="aiTaskFile" accept="image/*" style="font-size:13px;">
+        </div>
+        <div style="display:flex; justify-content:flex-end;">
+          <button type="button" class="btn-primary" onclick="runAiTaskExtraction()">解析して追加</button>
+        </div>
+      </div>
+      <div id="aiTaskStatus" style="display:none; padding:16px 0; text-align:center; color:var(--text-sub); font-size:13px;"></div>
+      <div id="aiTaskResults" style="display:none;">
+        <h4 style="margin:0 0 10px 0; font-size:14px;">抽出されたタスク:</h4>
+        <div id="aiTaskList" style="max-height:300px; overflow-y:auto;"></div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+          <button type="button" class="btn-secondary" onclick="resetAiTaskModal()">やり直す</button>
+          <button type="button" class="btn-primary" onclick="addSelectedAiTasks()">選択したタスクを追加</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
