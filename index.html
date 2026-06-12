@@ -1683,6 +1683,7 @@
     </div>
     <button onclick="exportBackupJSON()" style="background:rgba(255,255,255,0.9); color:#1e40af; padding:6px 12px; font-size:11px; border-radius:6px; border:none; font-weight:600; cursor:pointer;" title="JSONバックアップをダウンロード">💾 ローカル保存</button>
     <button onclick="openDriveSettings()" style="background:rgba(255,255,255,0.9); color:#1e40af; padding:6px 12px; font-size:11px; border-radius:6px; border:none; font-weight:600; cursor:pointer;" title="Google Drive バックアップ設定">⚙ Drive設定</button>
+    <button onclick="openDriveRestorePicker()" style="background:rgba(255,255,255,0.9); color:#1e40af; padding:6px 12px; font-size:11px; border-radius:6px; border:none; font-weight:600; cursor:pointer;" title="Google Driveからバックアップを選んで復元">📂 Drive復元</button>
     <div class="fy-selector">
       <label>年度</label>
       <select id="fySelect" onchange="changeFY(this.value)"></select>
@@ -5258,6 +5259,65 @@ function manualDriveBackup() {
     return;
   }
   executeDriveBackup(true);
+}
+
+async function openDriveRestorePicker() {
+  const gasUrl = getGasUrlFromHash() || (getDriveConfig().gasUrl || '');
+  if (!gasUrl) {
+    alert('Drive設定がされていません。先にDrive設定からGAS URLを入力してください。');
+    return;
+  }
+  const overlay = document.createElement('div');
+  overlay.id = 'drivePickerOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = '<div style="background:white;border-radius:12px;padding:24px;max-width:500px;width:90%;max-height:80vh;display:flex;flex-direction:column;"><h3 style="margin:0 0 12px;">📂 Driveから復元</h3><div id="drivePickerList" style="flex:1;overflow-y:auto;font-size:13px;">読み込み中...</div><div style="margin-top:12px;text-align:right;"><button class="btn-secondary" onclick="document.getElementById(\'drivePickerOverlay\').remove()">閉じる</button></div></div>';
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+
+  try {
+    const res = await fetch(gasUrl + '?action=list');
+    const json = await res.json();
+    const listEl = document.getElementById('drivePickerList');
+    if (!json.success || !json.files || json.files.length === 0) {
+      listEl.textContent = 'バックアップファイルが見つかりません。';
+      return;
+    }
+    listEl.innerHTML = '';
+    json.files.forEach(f => {
+      const d = new Date(f.created);
+      const dateStr = (d.getMonth()+1) + '/' + d.getDate() + ' ' + d.getHours() + ':' + String(d.getMinutes()).padStart(2,'0');
+      const sizeKB = Math.round(f.size / 1024);
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:10px 12px;border-bottom:1px solid #e5e7eb;cursor:pointer;display:flex;justify-content:space-between;align-items:center;';
+      row.innerHTML = '<div><div style="font-weight:600;">' + escapeHtml(f.name) + '</div><div style="font-size:11px;color:#6b7280;">' + dateStr + ' ・ ' + sizeKB + 'KB</div></div><button class="btn-primary" style="font-size:11px;padding:4px 12px;white-space:nowrap;">復元</button>';
+      row.querySelector('button').addEventListener('click', () => restoreFromDriveFile(gasUrl, f.name));
+      row.addEventListener('mouseenter', () => { row.style.background = '#f0f4ff'; });
+      row.addEventListener('mouseleave', () => { row.style.background = ''; });
+      listEl.appendChild(row);
+    });
+  } catch(e) {
+    document.getElementById('drivePickerList').textContent = 'エラー: ' + e.message;
+  }
+}
+
+async function restoreFromDriveFile(gasUrl, fileName) {
+  if (!confirm(fileName + ' から復元しますか？\n現在のデータは上書きされます。')) return;
+  const listEl = document.getElementById('drivePickerList');
+  if (listEl) listEl.innerHTML = '<div style="padding:20px;text-align:center;">復元中...</div>';
+  try {
+    const res = await fetch(gasUrl + '?action=get&file=' + encodeURIComponent(fileName));
+    const json = await res.json();
+    if (!json.success || !json.data) {
+      alert('復元失敗: ' + (json.message || '不明なエラー'));
+      return;
+    }
+    const backupData = json.data.store || json.data;
+    localStorage.setItem('uriage_store_v2', JSON.stringify(backupData));
+    alert('✓ 復元しました: ' + fileName);
+    location.reload();
+  } catch(e) {
+    alert('復元エラー: ' + e.message);
+  }
 }
 
 function checkAutoBackup() {
