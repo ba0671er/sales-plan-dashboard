@@ -8305,6 +8305,7 @@ function showAiTaskResults(tasks) {
         '<label style="font-size:11px;color:var(--text-sub);">終了日 <input type="date" data-ai-field="dueDate" data-ai-i="'+i+'" value="'+escapeAttr(t.dueDate||'')+'" style="font-size:11px;padding:2px;border:1px solid var(--border);border-radius:4px;" /></label>' +
       '</div>' +
     '</div>';
+
   }).join('');
   document.getElementById('aiTaskResults').style.display = '';
 }
@@ -8331,6 +8332,7 @@ function addSelectedAiTasks() {
       content: getField('content'),
       startDate: getField('startDate'),
       dueDate: getField('dueDate'),
+
       status: '未着手',
       url: '',
       comment: '',
