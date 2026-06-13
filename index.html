@@ -8284,17 +8284,27 @@ async function runAiTaskExtraction() {
 
 function showAiTaskResults(tasks) {
   var container = document.getElementById('aiTaskList');
+  var clients = getTaskClients().map(function(c){return c.name;});
+  var stores = getTaskStores().map(function(c){return c.name;});
+  var cats = getTaskCategories().map(function(c){return c.name;});
+  var clientOpts = '<option value="">—</option>' + clients.map(function(c){return '<option value="'+escapeAttr(c)+'">'+escapeHtml(c)+'</option>';}).join('');
+  var storeOpts = '<option value="">—</option>' + stores.map(function(c){return '<option value="'+escapeAttr(c)+'">'+escapeHtml(c)+'</option>';}).join('');
+  var catOpts = '<option value="">—</option>' + cats.map(function(c){return '<option value="'+escapeAttr(c)+'">'+escapeHtml(c)+'</option>';}).join('');
+
   container.innerHTML = tasks.map(function(t, i) {
-    var parts = [];
-    if (t.client) parts.push(escapeHtml(t.client));
-    if (t.store) parts.push(escapeHtml(t.store));
-    var meta = parts.length ? '<span style="color:var(--text-sub); font-size:11px;">' + parts.join(' / ') + '</span> ' : '';
-    var due = t.dueDate ? ' <span style="color:var(--primary); font-size:11px;">期限: ' + escapeHtml(t.dueDate) + '</span>' : '';
-    var cat = t.category ? ' <span style="background:#e0e7ff; color:#3730a3; font-size:10px; padding:1px 6px; border-radius:3px;">' + escapeHtml(t.category) + '</span>' : '';
-    return '<label style="display:flex; align-items:flex-start; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:6px; margin-bottom:6px; cursor:pointer; font-size:13px;">' +
-      '<input type="checkbox" checked data-ai-idx="' + i + '" style="margin-top:3px;">' +
-      '<div>' + meta + cat + '<br>' + escapeHtml(t.content || '') + due + '</div>' +
-    '</label>';
+    return '<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--card-bg);">' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">' +
+        '<input type="checkbox" checked data-ai-idx="'+i+'" />' +
+        '<select data-ai-field="client" data-ai-i="'+i+'" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+clientOpts.replace('value="'+escapeAttr(t.client||'')+'"','value="'+escapeAttr(t.client||'')+'" selected')+'</select>' +
+        '<select data-ai-field="store" data-ai-i="'+i+'" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+storeOpts.replace('value="'+escapeAttr(t.store||'')+'"','value="'+escapeAttr(t.store||'')+'" selected')+'</select>' +
+        '<select data-ai-field="category" data-ai-i="'+i+'" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+catOpts.replace('value="'+escapeAttr(t.category||'')+'"','value="'+escapeAttr(t.category||'')+'" selected')+'</select>' +
+      '</div>' +
+      '<input type="text" data-ai-field="content" data-ai-i="'+i+'" value="'+escapeAttr(t.content||'')+'" placeholder="タスク内容" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:13px;margin-bottom:6px;box-sizing:border-box;" />' +
+      '<div style="display:flex;gap:8px;align-items:center;">' +
+        '<label style="font-size:11px;color:var(--text-sub);">開始日 <input type="date" data-ai-field="startDate" data-ai-i="'+i+'" value="'+escapeAttr(t.startDate||'')+'" style="font-size:11px;padding:2px;border:1px solid var(--border);border-radius:4px;" /></label>' +
+        '<label style="font-size:11px;color:var(--text-sub);">終了日 <input type="date" data-ai-field="dueDate" data-ai-i="'+i+'" value="'+escapeAttr(t.dueDate||'')+'" style="font-size:11px;padding:2px;border:1px solid var(--border);border-radius:4px;" /></label>' +
+      '</div>' +
+    '</div>';
   }).join('');
   document.getElementById('aiTaskResults').style.display = '';
 }
@@ -8308,15 +8318,19 @@ function addSelectedAiTasks() {
     var idx = parseInt(cb.getAttribute('data-ai-idx'), 10);
     var t = _aiExtractedTasks[idx];
     if (!t) return;
+    var getField = function(field) {
+      var el = document.querySelector('[data-ai-field="'+field+'"][data-ai-i="'+idx+'"]');
+      return el ? el.value : (t[field] || '');
+    };
     store.tasks.push({
       id: String(Date.now()) + Math.random().toString(36).slice(2, 8),
-      category: t.category || '',
+      category: getField('category'),
       assignee: '',
-      client: t.client || '',
-      store: t.store || '',
-      content: t.content || '',
-      startDate: '',
-      dueDate: t.dueDate || '',
+      client: getField('client'),
+      store: getField('store'),
+      content: getField('content'),
+      startDate: getField('startDate'),
+      dueDate: getField('dueDate'),
       status: '未着手',
       url: '',
       comment: '',
