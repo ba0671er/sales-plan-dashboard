@@ -2150,6 +2150,7 @@
                 <option value="weekly">毎週</option>
                 <option value="monthly">毎月</option>
                 <option value="monthlyNth">毎月第N曜日</option>
+                <option value="weekdays">曜日</option>
               </select>
               <select id="t_recurring_weekday" style="display:none;">
                 <option value="0">日曜日</option>
@@ -2176,6 +2177,15 @@
                 <option value="6">土曜日</option>
                 <option value="0">日曜日</option>
               </select>
+              <div id="t_recurring_weekdaysCheck" style="display:none;gap:6px;flex-wrap:wrap;font-size:12px;">
+                <label style="display:flex;align-items:center;gap:2px;cursor:pointer;"><input type="checkbox" value="1" />月</label>
+                <label style="display:flex;align-items:center;gap:2px;cursor:pointer;"><input type="checkbox" value="2" />火</label>
+                <label style="display:flex;align-items:center;gap:2px;cursor:pointer;"><input type="checkbox" value="3" />水</label>
+                <label style="display:flex;align-items:center;gap:2px;cursor:pointer;"><input type="checkbox" value="4" />木</label>
+                <label style="display:flex;align-items:center;gap:2px;cursor:pointer;"><input type="checkbox" value="5" />金</label>
+                <label style="display:flex;align-items:center;gap:2px;cursor:pointer;"><input type="checkbox" value="6" />土</label>
+                <label style="display:flex;align-items:center;gap:2px;cursor:pointer;"><input type="checkbox" value="0" />日</label>
+              </div>
               <span style="font-size:11px; color:var(--text-sub);">※ 指定日の24時にステータスがリセットされます（アーカイブされません）</span>
             </div>
           </div>
@@ -5807,6 +5817,16 @@ function computeRecurringDueDate(recurring) {
     }
   }
 
+  if (recurring.type === 'weekdays' && Array.isArray(recurring.days) && recurring.days.length > 0) {
+    for (let offset = 0; offset < 7; offset++) {
+      const dt = new Date(now);
+      dt.setDate(dt.getDate() + offset);
+      if (recurring.days.includes(dt.getDay())) {
+        return localDateStr(dt);
+      }
+    }
+  }
+
   return null;
 }
 
@@ -5877,6 +5897,9 @@ function recurringLabel(recurring) {
     const nthLabel = ['', '第1', '第2', '第3', '第4'][Number(recurring.nth) || 1];
     return `毎月${nthLabel}${WEEKDAY_NAMES[Number(recurring.nthDay) || 0]}曜日`;
   }
+  if (recurring.type === 'weekdays' && Array.isArray(recurring.days)) {
+    return recurring.days.map(d => WEEKDAY_NAMES[d]).join('');
+  }
   return '';
 }
 
@@ -5884,7 +5907,7 @@ function buildRecurringInlineHTML(t, eid) {
   const r = t.recurring || {};
   const type = r.type || '';
   const day = r.day || '';
-  const typeOpts = [['','なし'],['daily','毎日'],['weekly','毎週'],['monthly','毎月'],['monthlyNth','第N曜日']]
+  const typeOpts = [['','なし'],['daily','毎日'],['weekly','毎週'],['monthly','毎月'],['monthlyNth','第N曜日'],['weekdays','曜日']]
     .map(([v,l]) => `<option value="${v}"${type === v ? ' selected' : ''}>${l}</option>`).join('');
   let html = `<select class="inline-edit" style="font-size:11px;width:68px;" onchange="updateTaskRecurring('${eid}','type',this.value)">${typeOpts}</select>`;
   if (type === 'weekly') {
@@ -5901,6 +5924,13 @@ function buildRecurringInlineHTML(t, eid) {
     html += `<select class="inline-edit" style="font-size:11px;width:48px;margin-left:2px;" onchange="updateTaskRecurring('${eid}','nth',this.value)">${nthOpts}</select>`;
     const ndOpts = WEEKDAY_NAMES.map((n,i) => `<option value="${i}"${String(nthDay) === String(i) ? ' selected' : ''}>${n}</option>`).join('');
     html += `<select class="inline-edit" style="font-size:11px;width:44px;margin-left:2px;" onchange="updateTaskRecurring('${eid}','nthDay',this.value)">${ndOpts}</select>`;
+  } else if (type === 'weekdays') {
+    const checkedDays = Array.isArray(r.days) ? r.days : [];
+    html += '<span style="display:inline-flex;gap:2px;margin-left:2px;">';
+    [1,2,3,4,5,6,0].forEach(d => {
+      html += `<label style="font-size:10px;cursor:pointer;"><input type="checkbox" value="${d}" ${checkedDays.includes(d)?'checked':''} onchange="updateTaskRecurringDays('${eid}')" style="margin:0;" />${WEEKDAY_NAMES[d]}</label>`;
+    });
+    html += '</span>';
   }
   return html;
 }
@@ -5917,6 +5947,9 @@ function updateTaskRecurring(id, field, value) {
       if (!t.recurring.nth) t.recurring.nth = 1;
       if (t.recurring.nthDay == null) t.recurring.nthDay = 1;
     }
+    if (value === 'weekdays' && !Array.isArray(t.recurring.days)) {
+      t.recurring.days = [1,2,3,4,5];
+    }
     if (!value) t.recurring = {};
   } else {
     t.recurring[field] = value;
@@ -5927,6 +5960,23 @@ function updateTaskRecurring(id, field, value) {
   }
   save();
   renderTaskTable();
+}
+
+function updateTaskRecurringDays(id) {
+  const t = (store.tasks || []).find(x => x.id === id);
+  if (!t || !t.recurring) return;
+  const row = document.querySelector('tr[data-task-id="' + id + '"]');
+  if (!row) return;
+  const days = [];
+  row.querySelectorAll('input[type=checkbox][onchange*="updateTaskRecurringDays"]').forEach(cb => {
+    if (cb.checked) days.push(Number(cb.value));
+  });
+  t.recurring.days = days;
+  if (t.recurring.type === 'weekdays') {
+    const next = computeRecurringDueDate(t.recurring);
+    if (next) t.dueDate = next;
+  }
+  save();
 }
 
 // ========== Weekly Review (B3) ==========
@@ -6749,6 +6799,7 @@ function updateRecurringOptionsUI() {
   }
   document.getElementById('t_recurring_nth').style.display = type === 'monthlyNth' ? '' : 'none';
   document.getElementById('t_recurring_nthDay').style.display = type === 'monthlyNth' ? '' : 'none';
+  document.getElementById('t_recurring_weekdaysCheck').style.display = type === 'weekdays' ? 'flex' : 'none';
 }
 
 function saveTask() {
@@ -6767,6 +6818,10 @@ function saveTask() {
     recurring = { type: 'monthly', day: Number(monthSel.value || 1) };
   } else if (type === 'monthlyNth') {
     recurring = { type: 'monthlyNth', nth: Number(document.getElementById('t_recurring_nth').value || 1), nthDay: Number(document.getElementById('t_recurring_nthDay').value || 1) };
+  } else if (type === 'weekdays') {
+    const days = [];
+    document.querySelectorAll('#t_recurring_weekdaysCheck input[type=checkbox]:checked').forEach(cb => days.push(Number(cb.value)));
+    if (days.length > 0) recurring = { type: 'weekdays', days: days };
   }
 
   let dueDate = document.getElementById('t_dueDate').value;
@@ -6927,6 +6982,11 @@ function editTask(id) {
   } else if (type === 'monthlyNth') {
     setVal('t_recurring_nth', t.recurring.nth || 1);
     setVal('t_recurring_nthDay', t.recurring.nthDay != null ? t.recurring.nthDay : 1);
+  } else if (type === 'weekdays') {
+    const days = Array.isArray(t.recurring.days) ? t.recurring.days : [];
+    document.querySelectorAll('#t_recurring_weekdaysCheck input[type=checkbox]').forEach(cb => {
+      cb.checked = days.includes(Number(cb.value));
+    });
   }
 
   // Visual: edit mode banner / button text / cancel button
