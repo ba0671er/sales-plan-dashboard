@@ -942,6 +942,18 @@
     white-space: nowrap;
   }
   th.sortable:hover, th.sortable-deal:hover { color: var(--primary); }
+  th.resizable { position: relative; overflow: hidden; }
+  th.resizable::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    cursor: col-resize;
+    background: transparent;
+  }
+  th.resizable:hover::after { background: var(--primary); opacity: 0.3; }
   .sort-indicator {
     display: inline-block;
     margin-left: 4px;
@@ -2282,17 +2294,17 @@
             <thead>
               <tr>
                 <th style="width:28px;"></th>
-                <th class="sortable" onclick="sortTasksBy('category')">カテゴリ<span class="sort-indicator" id="sortInd_category"></span></th>
-                <th class="sortable" onclick="sortTasksBy('assignee')">担当<span class="sort-indicator" id="sortInd_assignee"></span></th>
-                <th class="sortable" onclick="sortTasksBy('client')">クライアント<span class="sort-indicator" id="sortInd_client"></span></th>
-                <th class="sortable" onclick="sortTasksBy('store')">ストア<span class="sort-indicator" id="sortInd_store"></span></th>
-                <th class="sortable" onclick="sortTasksBy('content')">タスク内容<span class="sort-indicator" id="sortInd_content"></span></th>
-                <th class="sortable" onclick="sortTasksBy('startDate')">開始日<span class="sort-indicator" id="sortInd_startDate"></span></th>
-                <th class="sortable" onclick="sortTasksBy('dueDate')">終了日<span class="sort-indicator" id="sortInd_dueDate"></span></th>
-                <th class="sortable" onclick="sortTasksBy('status')">ステータス<span class="sort-indicator" id="sortInd_status"></span></th>
-                <th class="sortable" onclick="sortTasksBy('recurring')">繰り返し<span class="sort-indicator" id="sortInd_recurring"></span></th>
-                <th>URL</th>
-                <th>コメント</th>
+                <th class="sortable resizable" onclick="sortTasksBy('category')">カテゴリ<span class="sort-indicator" id="sortInd_category"></span></th>
+                <th class="sortable resizable" onclick="sortTasksBy('assignee')">担当<span class="sort-indicator" id="sortInd_assignee"></span></th>
+                <th class="sortable resizable" onclick="sortTasksBy('client')">クライアント<span class="sort-indicator" id="sortInd_client"></span></th>
+                <th class="sortable resizable" onclick="sortTasksBy('store')">ストア<span class="sort-indicator" id="sortInd_store"></span></th>
+                <th class="sortable resizable" onclick="sortTasksBy('content')">タスク内容<span class="sort-indicator" id="sortInd_content"></span></th>
+                <th class="sortable resizable" onclick="sortTasksBy('startDate')">開始日<span class="sort-indicator" id="sortInd_startDate"></span></th>
+                <th class="sortable resizable" onclick="sortTasksBy('dueDate')">終了日<span class="sort-indicator" id="sortInd_dueDate"></span></th>
+                <th class="sortable resizable" onclick="sortTasksBy('status')">ステータス<span class="sort-indicator" id="sortInd_status"></span></th>
+                <th class="sortable resizable" onclick="sortTasksBy('recurring')">繰り返し<span class="sort-indicator" id="sortInd_recurring"></span></th>
+                <th class="resizable">URL</th>
+                <th class="resizable">コメント</th>
                 <th></th>
               </tr>
             </thead>
@@ -7784,6 +7796,36 @@ setInterval(() => {
   if (currentTab === 'tasks') renderTaskView();
   else renderTaskKPIs();
 }, 60 * 1000);
+
+// ========== Column Resize ==========
+(function() {
+  let resizing = null;
+  document.addEventListener('mousedown', function(e) {
+    const th = e.target.closest('th.resizable');
+    if (!th) return;
+    const rect = th.getBoundingClientRect();
+    if (e.clientX < rect.right - 6) return;
+    e.preventDefault();
+    e.stopPropagation();
+    resizing = { th: th, startX: e.clientX, startW: th.offsetWidth };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!resizing) return;
+    const diff = e.clientX - resizing.startX;
+    const newW = Math.max(40, resizing.startW + diff);
+    resizing.th.style.width = newW + 'px';
+    resizing.th.style.minWidth = newW + 'px';
+  });
+  document.addEventListener('mouseup', function() {
+    if (resizing) {
+      resizing = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  });
+})();
 
 // ========== PWA: register service worker for home-screen app use ==========
 if ('serviceWorker' in navigator) {
