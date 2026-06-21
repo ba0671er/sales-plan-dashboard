@@ -5913,11 +5913,14 @@ function buildRecurringInlineHTML(t, eid) {
   let html = `<select class="inline-edit" style="font-size:11px;width:68px;" onchange="updateTaskRecurring('${eid}','type',this.value)">${typeOpts}</select>`;
   if (type === 'weekly') {
     const checkedDays = Array.isArray(r.days) ? r.days : [Number(r.day) || 1];
-    html += '<span style="display:inline-flex;gap:2px;margin-left:2px;">';
+    const dayLabel = checkedDays.map(d => WEEKDAY_NAMES[d]).join('') || '選択';
+    html += `<span style="position:relative;display:inline-block;margin-left:2px;">`;
+    html += `<button type="button" class="inline-edit" style="font-size:10px;padding:2px 4px;cursor:pointer;min-width:36px;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">${dayLabel}▼</button>`;
+    html += `<div style="display:none;position:absolute;top:100%;left:0;z-index:100;background:white;border:1px solid var(--border);border-radius:6px;padding:6px 8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);white-space:nowrap;">`;
     [1,2,3,4,5,6,0].forEach(d => {
-      html += `<label style="font-size:10px;cursor:pointer;"><input type="checkbox" value="${d}" ${checkedDays.includes(d)?'checked':''} onchange="updateTaskRecurringDays('${eid}','weekly')" style="margin:0;" />${WEEKDAY_NAMES[d]}</label>`;
+      html += `<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:2px 0;"><input type="checkbox" value="${d}" ${checkedDays.includes(d)?'checked':''} onchange="updateTaskRecurringDays('${eid}','weekly')" style="margin:0;" />${WEEKDAY_NAMES[d]}曜</label>`;
     });
-    html += '</span>';
+    html += `</div></span>`;
   } else if (type === 'monthly') {
     let mOpts = '';
     for (let d = 1; d <= 31; d++) mOpts += `<option value="${d}"${String(day) === String(d) ? ' selected' : ''}>${d}日</option>`;
@@ -5931,11 +5934,14 @@ function buildRecurringInlineHTML(t, eid) {
     html += `<select class="inline-edit" style="font-size:11px;width:44px;margin-left:2px;" onchange="updateTaskRecurring('${eid}','nthDay',this.value)">${ndOpts}</select>`;
   } else if (type === 'weekdays') {
     const checkedDays = Array.isArray(r.days) ? r.days : [];
-    html += '<span style="display:inline-flex;gap:2px;margin-left:2px;">';
+    const dayLabel = checkedDays.map(d => WEEKDAY_NAMES[d]).join('') || '選択';
+    html += `<span style="position:relative;display:inline-block;margin-left:2px;">`;
+    html += `<button type="button" class="inline-edit" style="font-size:10px;padding:2px 4px;cursor:pointer;min-width:36px;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">${dayLabel}▼</button>`;
+    html += `<div style="display:none;position:absolute;top:100%;left:0;z-index:100;background:white;border:1px solid var(--border);border-radius:6px;padding:6px 8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);white-space:nowrap;">`;
     [1,2,3,4,5,6,0].forEach(d => {
-      html += `<label style="font-size:10px;cursor:pointer;"><input type="checkbox" value="${d}" ${checkedDays.includes(d)?'checked':''} onchange="updateTaskRecurringDays('${eid}')" style="margin:0;" />${WEEKDAY_NAMES[d]}</label>`;
+      html += `<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:2px 0;"><input type="checkbox" value="${d}" ${checkedDays.includes(d)?'checked':''} onchange="updateTaskRecurringDays('${eid}')" style="margin:0;" />${WEEKDAY_NAMES[d]}曜</label>`;
     });
-    html += '</span>';
+    html += `</div></span>`;
   }
   return html;
 }
