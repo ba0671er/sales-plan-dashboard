@@ -2150,6 +2150,7 @@
                 <option value="weekly">毎週</option>
                 <option value="monthly">毎月</option>
                 <option value="monthlyNth">毎月第N曜日</option>
+                <option value="weekdays">曜日</option>
               </select>
               <div id="t_recurring_weekdayChecks" style="display:none;gap:6px;flex-wrap:wrap;font-size:12px;">
                 <label style="display:flex;align-items:center;gap:2px;cursor:pointer;"><input type="checkbox" value="1" />月</label>
@@ -5967,6 +5968,7 @@ function updateTaskRecurring(id, field, value) {
 }
 
 function updateTaskRecurringDays(id, recType) {
+
   const t = (store.tasks || []).find(x => x.id === id);
   if (!t || !t.recurring) return;
   const row = document.querySelector('tr[data-task-id="' + id + '"]');
@@ -5977,6 +5979,7 @@ function updateTaskRecurringDays(id, recType) {
   });
   t.recurring.days = days;
   if (t.recurring.type === 'weekly' || t.recurring.type === 'weekdays') {
+
     const next = computeRecurringDueDate(t.recurring);
     if (next) t.dueDate = next;
   }
