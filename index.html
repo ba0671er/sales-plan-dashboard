@@ -2152,15 +2152,15 @@
                 <option value="monthlyNth">毎月第N曜日</option>
                 <option value="weekdays">曜日</option>
               </select>
-              <select id="t_recurring_weekday" style="display:none;">
-                <option value="0">日曜日</option>
-                <option value="1">月曜日</option>
-                <option value="2">火曜日</option>
-                <option value="3">水曜日</option>
-                <option value="4">木曜日</option>
-                <option value="5">金曜日</option>
-                <option value="6">土曜日</option>
-              </select>
+              <div id="t_recurring_weekdayChecks" style="display:none;gap:6px;flex-wrap:wrap;font-size:12px;">
+                <label style="display:flex;align-items:center;gap:2px;cursor:pointer;"><input type="checkbox" value="1" />月</label>
+                <label style="display:flex;align-items:center;gap:2px;cursor:pointer;"><input type="checkbox" value="2" />火</label>
+                <label style="display:flex;align-items:center;gap:2px;cursor:pointer;"><input type="checkbox" value="3" />水</label>
+                <label style="display:flex;align-items:center;gap:2px;cursor:pointer;"><input type="checkbox" value="4" />木</label>
+                <label style="display:flex;align-items:center;gap:2px;cursor:pointer;"><input type="checkbox" value="5" />金</label>
+                <label style="display:flex;align-items:center;gap:2px;cursor:pointer;"><input type="checkbox" value="6" />土</label>
+                <label style="display:flex;align-items:center;gap:2px;cursor:pointer;"><input type="checkbox" value="0" />日</label>
+              </div>
               <select id="t_recurring_monthday" style="display:none;"></select>
               <select id="t_recurring_nth" style="display:none;">
                 <option value="1">第1</option>
@@ -5758,16 +5758,14 @@ function computeRecurringDueDate(recurring) {
   }
 
   if (recurring.type === 'weekly') {
-    const targetDay = Number(recurring.day); // 0-6
-    const currentDay = now.getDay();
-    let diff = targetDay - currentDay;
-    if (diff < 0) diff += 7;
-    const result = new Date(now);
-    result.setDate(result.getDate() + diff);
-    const y = result.getFullYear();
-    const m = String(result.getMonth() + 1).padStart(2, '0');
-    const d = String(result.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    const days = Array.isArray(recurring.days) ? recurring.days : [Number(recurring.day) || 1];
+    if (days.length === 0) return todayStr();
+    for (let offset = 0; offset < 7; offset++) {
+      const dt = new Date(now);
+      dt.setDate(dt.getDate() + offset);
+      if (days.includes(dt.getDay())) return localDateStr(dt);
+    }
+    return todayStr();
   }
 
   if (recurring.type === 'monthly') {
@@ -5891,7 +5889,10 @@ function isTaskAlerting(task) {
 function recurringLabel(recurring) {
   if (!recurring || !recurring.type) return '';
   if (recurring.type === 'daily') return '毎日';
-  if (recurring.type === 'weekly') return `毎週${WEEKDAY_NAMES[Number(recurring.day) || 0]}曜日`;
+  if (recurring.type === 'weekly') {
+    const days = Array.isArray(recurring.days) ? recurring.days : [Number(recurring.day) || 1];
+    return '毎週' + days.map(d => WEEKDAY_NAMES[d]).join('・');
+  }
   if (recurring.type === 'monthly') return `毎月${Number(recurring.day) || 1}日`;
   if (recurring.type === 'monthlyNth') {
     const nthLabel = ['', '第1', '第2', '第3', '第4'][Number(recurring.nth) || 1];
@@ -5911,8 +5912,12 @@ function buildRecurringInlineHTML(t, eid) {
     .map(([v,l]) => `<option value="${v}"${type === v ? ' selected' : ''}>${l}</option>`).join('');
   let html = `<select class="inline-edit" style="font-size:11px;width:68px;" onchange="updateTaskRecurring('${eid}','type',this.value)">${typeOpts}</select>`;
   if (type === 'weekly') {
-    const wOpts = WEEKDAY_NAMES.map((n,i) => `<option value="${i}"${String(day) === String(i) ? ' selected' : ''}>${n}</option>`).join('');
-    html += `<select class="inline-edit" style="font-size:11px;width:44px;margin-left:2px;" onchange="updateTaskRecurring('${eid}','day',this.value)">${wOpts}</select>`;
+    const checkedDays = Array.isArray(r.days) ? r.days : [Number(r.day) || 1];
+    html += '<span style="display:inline-flex;gap:2px;margin-left:2px;">';
+    [1,2,3,4,5,6,0].forEach(d => {
+      html += `<label style="font-size:10px;cursor:pointer;"><input type="checkbox" value="${d}" ${checkedDays.includes(d)?'checked':''} onchange="updateTaskRecurringDays('${eid}','weekly')" style="margin:0;" />${WEEKDAY_NAMES[d]}</label>`;
+    });
+    html += '</span>';
   } else if (type === 'monthly') {
     let mOpts = '';
     for (let d = 1; d <= 31; d++) mOpts += `<option value="${d}"${String(day) === String(d) ? ' selected' : ''}>${d}日</option>`;
@@ -5941,7 +5946,7 @@ function updateTaskRecurring(id, field, value) {
   if (!t.recurring) t.recurring = {};
   if (field === 'type') {
     t.recurring.type = value;
-    if (value === 'weekly' && !t.recurring.day) t.recurring.day = '1';
+    if (value === 'weekly' && !Array.isArray(t.recurring.days)) t.recurring.days = [1,4];
     if (value === 'monthly' && !t.recurring.day) t.recurring.day = '1';
     if (value === 'monthlyNth') {
       if (!t.recurring.nth) t.recurring.nth = 1;
@@ -5962,7 +5967,8 @@ function updateTaskRecurring(id, field, value) {
   renderTaskTable();
 }
 
-function updateTaskRecurringDays(id) {
+function updateTaskRecurringDays(id, recType) {
+
   const t = (store.tasks || []).find(x => x.id === id);
   if (!t || !t.recurring) return;
   const row = document.querySelector('tr[data-task-id="' + id + '"]');
@@ -5972,7 +5978,8 @@ function updateTaskRecurringDays(id) {
     if (cb.checked) days.push(Number(cb.value));
   });
   t.recurring.days = days;
-  if (t.recurring.type === 'weekdays') {
+  if (t.recurring.type === 'weekly' || t.recurring.type === 'weekdays') {
+
     const next = computeRecurringDueDate(t.recurring);
     if (next) t.dueDate = next;
   }
@@ -6786,7 +6793,7 @@ function escapeAttr(s) {
 // ========== Task CRUD ==========
 function updateRecurringOptionsUI() {
   const type = document.getElementById('t_recurring_type').value;
-  document.getElementById('t_recurring_weekday').style.display = type === 'weekly' ? '' : 'none';
+  document.getElementById('t_recurring_weekdayChecks').style.display = type === 'weekly' ? 'flex' : 'none';
   const monthSel = document.getElementById('t_recurring_monthday');
   monthSel.style.display = type === 'monthly' ? '' : 'none';
   if (type === 'monthly' && monthSel.options.length === 0) {
@@ -6812,7 +6819,9 @@ function saveTask() {
   if (type === 'daily') {
     recurring = { type: 'daily' };
   } else if (type === 'weekly') {
-    recurring = { type: 'weekly', day: Number(document.getElementById('t_recurring_weekday').value) };
+    const days = [];
+    document.querySelectorAll('#t_recurring_weekdayChecks input[type=checkbox]:checked').forEach(cb => days.push(Number(cb.value)));
+    recurring = { type: 'weekly', days: days };
   } else if (type === 'monthly') {
     const monthSel = document.getElementById('t_recurring_monthday');
     recurring = { type: 'monthly', day: Number(monthSel.value || 1) };
@@ -6976,7 +6985,10 @@ function editTask(id) {
   setVal('t_recurring_type', type || '');
   updateRecurringOptionsUI();
   if (type === 'weekly') {
-    setVal('t_recurring_weekday', t.recurring.day);
+    const days = Array.isArray(t.recurring.days) ? t.recurring.days : [Number(t.recurring.day) || 1];
+    document.querySelectorAll('#t_recurring_weekdayChecks input[type=checkbox]').forEach(cb => {
+      cb.checked = days.includes(Number(cb.value));
+    });
   } else if (type === 'monthly') {
     setVal('t_recurring_monthday', t.recurring.day);
   } else if (type === 'monthlyNth') {
