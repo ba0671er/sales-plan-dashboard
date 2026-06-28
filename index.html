@@ -8419,6 +8419,8 @@ function showAiTaskResults(tasks) {
     if (val && !found) {
       opts += '<option value="'+escapeAttr(val)+'" selected>'+escapeHtml(val)+'（新規）</option>';
     }
+    opts += '<option value="__ADD_NEW__">＋ 新規追加...</option>';
+
     return opts;
   }
 
@@ -8426,9 +8428,10 @@ function showAiTaskResults(tasks) {
     return '<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--card-bg);">' +
       '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">' +
         '<input type="checkbox" checked data-ai-idx="'+i+'" />' +
-        '<select data-ai-field="client" data-ai-i="'+i+'" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+buildOpts(clients, t.client||'')+'</select>' +
-        '<select data-ai-field="store" data-ai-i="'+i+'" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+buildOpts(stores, t.store||'')+'</select>' +
-        '<select data-ai-field="category" data-ai-i="'+i+'" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+buildOpts(cats, t.category||'')+'</select>' +
+        '<select data-ai-field="client" data-ai-i="'+i+'" onchange="aiResultSelectAddNew(this,\'client\')" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+buildOpts(clients, t.client||'')+'</select>' +
+        '<select data-ai-field="store" data-ai-i="'+i+'" onchange="aiResultSelectAddNew(this,\'store\')" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+buildOpts(stores, t.store||'')+'</select>' +
+        '<select data-ai-field="category" data-ai-i="'+i+'" onchange="aiResultSelectAddNew(this,\'category\')" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+buildOpts(cats, t.category||'')+'</select>' +
+
       '</div>' +
       '<input type="text" data-ai-field="content" data-ai-i="'+i+'" value="'+escapeAttr(t.content||'')+'" placeholder="タスク内容" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:13px;margin-bottom:6px;box-sizing:border-box;" />' +
       '<div style="display:flex;gap:8px;align-items:center;">' +
@@ -8439,6 +8442,24 @@ function showAiTaskResults(tasks) {
 
   }).join('');
   document.getElementById('aiTaskResults').style.display = '';
+}
+
+function aiResultSelectAddNew(sel, kind) {
+  if (sel.value !== '__ADD_NEW__') return;
+  var labelMap = { client: 'クライアント', store: 'ストア', category: 'カテゴリ' };
+  var name = (prompt('新しい' + (labelMap[kind] || '項目') + '名を入力') || '').trim();
+  if (!name) { sel.value = ''; return; }
+  // Insert the new option before the "＋ 新規追加..." entry and select it
+  var addOpt = sel.querySelector('option[value="__ADD_NEW__"]');
+  var exists = false;
+  Array.prototype.forEach.call(sel.options, function(o){ if (o.value === name) exists = true; });
+  if (!exists) {
+    var opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name + '（新規）';
+    sel.insertBefore(opt, addOpt);
+  }
+  sel.value = name;
 }
 
 function addSelectedAiTasks() {
