@@ -8336,7 +8336,7 @@ async function runAiTaskExtraction() {
   const categoryNames = getTaskCategories().map(function(c) { return c.name; }).join(', ');
   const today = todayStr();
 
-  const systemPrompt = 'あなたはチャットメッセージからタスク情報を抽出するアシスタントです。\n以下の情報を抽出してJSON配列で返してください。\n\n各タスクオブジェクト:\n- client: クライアント名（不明なら空文字）\n- store: ストア名（不明なら空文字）\n- content: タスク内容（簡潔に）\n- dueDate: 期日（YYYY-MM-DD形式、不明なら空文字。「今週中」「金曜まで」等は今日の日付から計算）\n- category: カテゴリ（不明なら空文字）\n\n既存のクライアント: ' + clientNames + '\n既存のストア: ' + storeNames + '\n既存のカテゴリ: ' + categoryNames + '\n今日の日付: ' + today + '\n\nJSONの配列のみを返してください。マークダウンのコードブロックは使わないでください。';
+  const systemPrompt = 'あなたはチャットメッセージからタスク情報を抽出するアシスタントです。\n以下の情報を抽出してJSON配列で返してください。\n\n各タスクオブジェクト:\n- client: クライアント名（推測できる範囲で必ず入れる。既存リストに近い名前があればその表記に合わせる）\n- store: ストア名（推測できる範囲で入れる。「楽天」「Amazon」「自社EC」等のモール名もストアとして入れてよい）\n- content: タスク内容（簡潔に）\n- dueDate: 期日（YYYY-MM-DD形式、不明なら空文字。「今週中」「金曜まで」等は今日の日付から計算）\n- category: カテゴリ（既存リストから最も近いものを選ぶ。EC関連なら「ECコンサル」等）\n\n重要: client/store/categoryは可能な限り埋めてください。文脈から推測できるものは空にしないでください。既存リストにある名前は完全一致の表記で返してください。\n\n既存のクライアント: ' + clientNames + '\n既存のストア: ' + storeNames + '\n既存のカテゴリ: ' + categoryNames + '\n今日の日付: ' + today + '\n\nJSONの配列のみを返してください。マークダウンのコードブロックは使わないでください。';
 
   var userContent;
   if (file) {
@@ -8407,17 +8407,28 @@ function showAiTaskResults(tasks) {
   var clients = getTaskClients().map(function(c){return c.name;});
   var stores = getTaskStores().map(function(c){return c.name;});
   var cats = getTaskCategories().map(function(c){return c.name;});
-  var clientOpts = '<option value="">—</option>' + clients.map(function(c){return '<option value="'+escapeAttr(c)+'">'+escapeHtml(c)+'</option>';}).join('');
-  var storeOpts = '<option value="">—</option>' + stores.map(function(c){return '<option value="'+escapeAttr(c)+'">'+escapeHtml(c)+'</option>';}).join('');
-  var catOpts = '<option value="">—</option>' + cats.map(function(c){return '<option value="'+escapeAttr(c)+'">'+escapeHtml(c)+'</option>';}).join('');
+
+  function buildOpts(list, val) {
+    var opts = '<option value=""' + (!val ? ' selected' : '') + '>—</option>';
+    var found = false;
+    list.forEach(function(c){
+      var sel = (c === val) ? ' selected' : '';
+      if (sel) found = true;
+      opts += '<option value="'+escapeAttr(c)+'"'+sel+'>'+escapeHtml(c)+'</option>';
+    });
+    if (val && !found) {
+      opts += '<option value="'+escapeAttr(val)+'" selected>'+escapeHtml(val)+'（新規）</option>';
+    }
+    return opts;
+  }
 
   container.innerHTML = tasks.map(function(t, i) {
     return '<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--card-bg);">' +
       '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">' +
         '<input type="checkbox" checked data-ai-idx="'+i+'" />' +
-        '<select data-ai-field="client" data-ai-i="'+i+'" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+clientOpts.replace('value="'+escapeAttr(t.client||'')+'"','value="'+escapeAttr(t.client||'')+'" selected')+'</select>' +
-        '<select data-ai-field="store" data-ai-i="'+i+'" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+storeOpts.replace('value="'+escapeAttr(t.store||'')+'"','value="'+escapeAttr(t.store||'')+'" selected')+'</select>' +
-        '<select data-ai-field="category" data-ai-i="'+i+'" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+catOpts.replace('value="'+escapeAttr(t.category||'')+'"','value="'+escapeAttr(t.category||'')+'" selected')+'</select>' +
+        '<select data-ai-field="client" data-ai-i="'+i+'" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+buildOpts(clients, t.client||'')+'</select>' +
+        '<select data-ai-field="store" data-ai-i="'+i+'" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+buildOpts(stores, t.store||'')+'</select>' +
+        '<select data-ai-field="category" data-ai-i="'+i+'" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+buildOpts(cats, t.category||'')+'</select>' +
       '</div>' +
       '<input type="text" data-ai-field="content" data-ai-i="'+i+'" value="'+escapeAttr(t.content||'')+'" placeholder="タスク内容" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:13px;margin-bottom:6px;box-sizing:border-box;" />' +
       '<div style="display:flex;gap:8px;align-items:center;">' +
@@ -8443,12 +8454,25 @@ function addSelectedAiTasks() {
       var el = document.querySelector('[data-ai-field="'+field+'"][data-ai-i="'+idx+'"]');
       return el ? el.value : (t[field] || '');
     };
+    var catVal = getField('category');
+    var clientVal = getField('client');
+    var storeVal = getField('store');
+    // Register newly-introduced names into settings so they persist
+    if (clientVal && !store.taskSettings.clients.find(function(x){return x.name===clientVal;})) {
+      store.taskSettings.clients.push({ name: clientVal, color: CLIENT_PALETTE[store.taskSettings.clients.length % CLIENT_PALETTE.length] });
+    }
+    if (storeVal && !store.taskSettings.stores.find(function(x){return x.name===storeVal;})) {
+      store.taskSettings.stores.push({ name: storeVal, color: STORE_PALETTE[store.taskSettings.stores.length % STORE_PALETTE.length] });
+    }
+    if (catVal && !store.taskSettings.categories.find(function(x){return x.name===catVal;})) {
+      store.taskSettings.categories.push({ name: catVal, color: CAT_PALETTE[store.taskSettings.categories.length % CAT_PALETTE.length] });
+    }
     store.tasks.push({
       id: String(Date.now()) + Math.random().toString(36).slice(2, 8),
-      category: getField('category'),
+      category: catVal,
       assignee: '',
-      client: getField('client'),
-      store: getField('store'),
+      client: clientVal,
+      store: storeVal,
       content: getField('content'),
       startDate: getField('startDate'),
       dueDate: getField('dueDate'),
