@@ -6604,7 +6604,7 @@ function renderTaskTable() {
       <td><select class="inline-edit" style="font-size:11px;" onchange="inlineSelectAddNew(this,'assignee','${eid}')">${assigneeOptions}</select></td>
       <td><select class="inline-edit" style="font-size:11px;" onchange="inlineSelectAddNew(this,'client','${eid}')">${clientOptions}</select></td>
       <td><select class="inline-edit" style="font-size:11px;" onchange="inlineSelectAddNew(this,'store','${eid}')">${storeOptions}</select></td>
-      <td><input class="inline-edit" type="text" value="${escapeAttr(t.content || '')}" onchange="updateTaskField('${eid}','content',this.value)" /></td>
+      <td><input class="inline-edit" type="text" value="${escapeAttr(t.content || '')}" title="${escapeAttr(t.content || '')}" onchange="updateTaskField('${eid}','content',this.value); this.title=this.value;" /></td>
       <td><input class="inline-edit dt" type="date" value="${escapeAttr(t.startDate || '')}" onchange="updateTaskField('${eid}','startDate',this.value)" /></td>
       <td><input class="inline-edit dt" type="date" value="${escapeAttr(t.dueDate || '')}" onchange="updateTaskField('${eid}','dueDate',this.value)" /></td>
       <td>
@@ -6614,7 +6614,7 @@ function renderTaskTable() {
       </td>
       <td style="white-space:nowrap;">${buildRecurringInlineHTML(t, eid)}</td>
       <td><input class="inline-edit" type="url" value="${escapeAttr(t.url || '')}" placeholder="URL" style="font-size:11px; min-width:80px;" onchange="updateTaskField('${eid}','url',this.value)" /></td>
-      <td><input class="inline-edit" type="text" value="${escapeAttr(t.comment || '')}" placeholder="" style="font-size:12px; min-width:100px;" onchange="updateTaskField('${eid}','comment',this.value)" /></td>
+      <td><input class="inline-edit" type="text" value="${escapeAttr(t.comment || '')}" title="${escapeAttr(t.comment || '')}" placeholder="" style="font-size:12px; min-width:100px;" onchange="updateTaskField('${eid}','comment',this.value); this.title=this.value;" /></td>
       <td>
         <div class="row-actions">
           <button type="button" class="icon-btn delete" onclick="deleteTask('${eid}')">削除</button>
