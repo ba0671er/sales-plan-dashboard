@@ -8420,6 +8420,7 @@ function showAiTaskResults(tasks) {
       opts += '<option value="'+escapeAttr(val)+'" selected>'+escapeHtml(val)+'（新規）</option>';
     }
     opts += '<option value="__ADD_NEW__">＋ 新規追加...</option>';
+
     return opts;
   }
 
@@ -8430,6 +8431,7 @@ function showAiTaskResults(tasks) {
         '<select data-ai-field="client" data-ai-i="'+i+'" onchange="aiResultSelectAddNew(this,\'client\')" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+buildOpts(clients, t.client||'')+'</select>' +
         '<select data-ai-field="store" data-ai-i="'+i+'" onchange="aiResultSelectAddNew(this,\'store\')" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+buildOpts(stores, t.store||'')+'</select>' +
         '<select data-ai-field="category" data-ai-i="'+i+'" onchange="aiResultSelectAddNew(this,\'category\')" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;">'+buildOpts(cats, t.category||'')+'</select>' +
+
       '</div>' +
       '<input type="text" data-ai-field="content" data-ai-i="'+i+'" value="'+escapeAttr(t.content||'')+'" placeholder="タスク内容" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:13px;margin-bottom:6px;box-sizing:border-box;" />' +
       '<div style="display:flex;gap:8px;align-items:center;">' +
