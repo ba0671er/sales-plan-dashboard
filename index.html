@@ -5606,6 +5606,22 @@ function populateTaskFilterDropdowns() {
   populateSelect(document.getElementById('taskFilterClient'), clients, null, 'すべて');
   updateFilterStoreSuggestions();
   populateSelect(document.getElementById('taskFilterAssignee'), assignees, null, 'すべて');
+  ['taskFilterCategory','taskFilterClient','taskFilterStore','taskFilterAssignee'].forEach(addBlankFilterOption);
+}
+
+function addBlankFilterOption(selId) {
+  const el = document.getElementById(selId);
+  if (!el) return;
+  const cur = el.value;
+  if (!Array.prototype.some.call(el.options, o => o.value === '__BLANK__')) {
+    const opt = document.createElement('option');
+    opt.value = '__BLANK__';
+    opt.textContent = '（未設定）';
+    // Insert right after the "すべて" option (index 0)
+    if (el.options.length > 1) el.insertBefore(opt, el.options[1]);
+    else el.appendChild(opt);
+  }
+  el.value = cur;
 }
 
 function updateFilterStoreSuggestions() {
@@ -5622,6 +5638,7 @@ function updateFilterStoreSuggestions() {
   });
   const filtered = allStores.filter(s => clientStores.has(s));
   populateSelect(document.getElementById('taskFilterStore'), filtered.length > 0 ? filtered : allStores, curStore, 'すべて');
+  addBlankFilterOption('taskFilterStore');
 }
 
 function populateStatusCheckboxes(statuses) {
@@ -6514,10 +6531,11 @@ function renderTaskTable() {
   const keyword = ((document.getElementById('taskFilterKeyword') || {}).value || '').toLowerCase().trim();
 
   let tasks = (store.tasks || []).slice();
-  if (filterCat)      tasks = tasks.filter(t => t.category === filterCat);
-  if (filterClient)   tasks = tasks.filter(t => (t.client   || '') === filterClient);
-  if (filterStore)    tasks = tasks.filter(t => (t.store    || '') === filterStore);
-  if (filterAssignee) tasks = tasks.filter(t => (t.assignee || '') === filterAssignee);
+  const matchField = (val, filter) => filter === '__BLANK__' ? !(val || '') : (val || '') === filter;
+  if (filterCat)      tasks = tasks.filter(t => matchField(t.category, filterCat));
+  if (filterClient)   tasks = tasks.filter(t => matchField(t.client, filterClient));
+  if (filterStore)    tasks = tasks.filter(t => matchField(t.store, filterStore));
+  if (filterAssignee) tasks = tasks.filter(t => matchField(t.assignee, filterAssignee));
   if (checkedStatuses.size > 0) tasks = tasks.filter(t => checkedStatuses.has(t.status));
   const due5 = (document.getElementById('taskFilterDue5') || {}).checked;
   if (due5) {
