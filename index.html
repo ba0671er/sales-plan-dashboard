@@ -5181,6 +5181,18 @@ document.addEventListener('click', (e) => {
 const DRIVE_BACKUP_KEY = 'uriage_drive_backup_config';
 const DRIVE_BACKUP_LOG_KEY = 'uriage_drive_backup_log';
 
+// GAS URL埋め込み: ブラウザデータを消しても自動復元できるようコードに直接保存。
+// 変更する場合はこの値を書き換える。
+const EMBEDDED_GAS_URL = 'https://script.google.com/macros/s/AKfycbxiw_QNnZooRXa6R6kMj93PEG1QaSgUf0SbdcXA3DKN2w1LiLN18-sSg_qRAA7bdb_BnQ/exec';
+
+// 有効なGAS URLを解決（埋め込み > ハッシュ > localStorage設定）
+function resolveGasUrl() {
+  if (EMBEDDED_GAS_URL) return EMBEDDED_GAS_URL;
+  const hashUrl = getGasUrlFromHash();
+  if (hashUrl) return hashUrl;
+  return (getDriveConfig().gasUrl || '');
+}
+
 function getDriveConfig() {
   try { return JSON.parse(localStorage.getItem(DRIVE_BACKUP_KEY)) || {}; } catch(e) { return {}; }
 }
@@ -5199,20 +5211,41 @@ function saveDriveLog(log) {
 
 function openDriveSettings() {
   const config = getDriveConfig();
-  const currentUrl = config.gasUrl || '';
-  const url = prompt(
-    'Google Apps Script のデプロイURLを入力してください。\n\n' +
-    '※ 設定手順:\n' +
-    '1. script.google.com で新しいプロジェクトを作成\n' +
-    '2. gas-backup-script.js のコードを貼り付け\n' +
-    '3. 「デプロイ」→「新しいデプロイ」→「ウェブアプリ」\n' +
-    '4. アクセス:「全員」→ デプロイ\n' +
-    '5. 表示されたURLをここに貼り付け\n\n' +
-    '現在の設定: ' + (currentUrl ? currentUrl.substring(0, 50) + '...' : '未設定'),
-    currentUrl
-  );
-  if (url === null) return; // キャンセル
-  if (url === '') {
+  const currentUrl = EMBEDDED_GAS_URL || config.gasUrl || '';
+  const embeddedNote = EMBEDDED_GAS_URL
+    ? '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:6px;padding:8px 10px;font-size:12px;color:#065f46;margin-bottom:12px;">✓ GAS URLはアプリに埋め込み済みです。ブラウザ履歴を消しても自動で復元されます。通常このまま変更不要です。</div>'
+    : '';
+  const overlay = document.createElement('div');
+  overlay.id = 'driveSettingsOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML =
+    '<div style="background:white;border-radius:12px;padding:24px;max-width:520px;width:90%;max-height:85vh;overflow-y:auto;">' +
+      '<h3 style="margin:0 0 12px;">⚙ Drive バックアップ設定</h3>' +
+      embeddedNote +
+      '<p style="font-size:13px;margin:0 0 8px;">Google Apps Script のデプロイURLを設定します。</p>' +
+      '<div style="font-size:12px;color:var(--text-sub);background:#f8fafc;border-radius:6px;padding:10px 12px;margin-bottom:12px;line-height:1.7;">' +
+        '<b>設定手順:</b><br>' +
+        '1. <a href="https://script.google.com" target="_blank" rel="noopener" style="color:var(--primary);">script.google.com</a> で新しいプロジェクトを作成<br>' +
+        '2. リポジトリの <code>gas-backup-script.js</code> のコードを貼り付け<br>' +
+        '3. 「デプロイ」→「新しいデプロイ」→「ウェブアプリ」<br>' +
+        '4. アクセス:「全員」→ デプロイ<br>' +
+        '5. 表示されたURLを下に貼り付け' +
+      '</div>' +
+      '<input type="text" id="driveSettingsUrl" value="' + escapeAttr(currentUrl) + '" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:12px;box-sizing:border-box;margin-bottom:14px;" />' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+        '<button class="btn-secondary" onclick="document.getElementById(\'driveSettingsOverlay\').remove()">閉じる</button>' +
+        '<button class="btn-primary" onclick="saveDriveSettingsFromModal()">保存してテスト</button>' +
+      '</div>' +
+    '</div>';
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+function saveDriveSettingsFromModal() {
+  const url = (document.getElementById('driveSettingsUrl') || {}).value || '';
+  const overlay = document.getElementById('driveSettingsOverlay');
+  if (overlay) overlay.remove();
+  if (url.trim() === '') {
     saveDriveConfig({});
     updateDriveStatusUI();
     alert('Drive バックアップ設定を解除しました');
@@ -5221,16 +5254,16 @@ function openDriveSettings() {
   saveDriveConfig({ gasUrl: url.trim(), enabled: true });
   saveGasUrlToHash(url.trim());
   updateDriveStatusUI();
-  alert('設定を保存しました。テストバックアップを実行します...');
   executeDriveBackup(true);
 }
 
 async function executeDriveBackup(isManual) {
-  const config = getDriveConfig();
-  if (!config.gasUrl) {
+  const gasUrl = resolveGasUrl();
+  if (!gasUrl) {
     if (isManual) alert('Drive バックアップが設定されていません。\n「⚙ Drive設定」からURLを設定してください。');
     return;
   }
+  const config = getDriveConfig();
 
   const driveIcon = document.getElementById('driveIcon');
   const driveText = document.getElementById('driveText');
@@ -5245,7 +5278,7 @@ async function executeDriveBackup(isManual) {
       source: 'auto-backup'
     };
 
-    const response = await fetch(config.gasUrl, {
+    const response = await fetch(gasUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload),
@@ -5276,8 +5309,7 @@ async function executeDriveBackup(isManual) {
 }
 
 function manualDriveBackup() {
-  const config = getDriveConfig();
-  if (!config.gasUrl) {
+  if (!resolveGasUrl()) {
     openDriveSettings();
     return;
   }
@@ -5285,7 +5317,7 @@ function manualDriveBackup() {
 }
 
 async function openDriveRestorePicker() {
-  const gasUrl = getGasUrlFromHash() || (getDriveConfig().gasUrl || '');
+  const gasUrl = resolveGasUrl();
   if (!gasUrl) {
     alert('Drive設定がされていません。先にDrive設定からGAS URLを入力してください。');
     return;
@@ -5344,9 +5376,10 @@ async function restoreFromDriveFile(gasUrl, fileName) {
 }
 
 function checkAutoBackup() {
+  const gasUrl = resolveGasUrl();
+  if (!gasUrl) return;
   const config = getDriveConfig();
-  if (!config.gasUrl || !config.enabled) return;
-  if (!getGasUrlFromHash()) saveGasUrlToHash(config.gasUrl);
+  if (!EMBEDDED_GAS_URL && !config.enabled) return;
 
   // データが空の場合は自動バックアップしない（既存の良質なバックアップを保護）
   const totalDeals = (store && store.data) ? Object.values(store.data).reduce((sum, d) => sum + ((d && d.deals) ? d.deals.length : 0), 0) : 0;
@@ -5375,7 +5408,7 @@ function updateDriveStatusUI() {
   const config = getDriveConfig();
   const log = getDriveLog();
 
-  if (!config.gasUrl) {
+  if (!resolveGasUrl()) {
     driveIcon.textContent = '☁';
     driveIcon.style.color = '#94a3b8';
     driveText.textContent = 'Drive: 未設定';
@@ -5433,7 +5466,7 @@ async function tryAutoRestore() {
     return false;
   }
 
-  let gasUrl = getGasUrlFromHash();
+  let gasUrl = resolveGasUrl();
 
   if (!gasUrl) {
     gasUrl = prompt(
